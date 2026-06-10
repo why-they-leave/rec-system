@@ -1,0 +1,42 @@
+name: Notebook Smoke Test
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "notebooks/**"
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Python 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: 의존성 설치
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: 변경된 노트북 실행 가능 여부 확인
+        run: |
+          NOTEBOOKS=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- '*.ipynb')
+          if [ -z "$NOTEBOOKS" ]; then
+            echo "변경된 노트북 없음, 건너뜀"
+            exit 0
+          fi
+          for nb in $NOTEBOOKS; do
+            echo "테스트: $nb"
+            jupyter nbconvert --to notebook --execute "$nb" \
+              --ExecutePreprocessor.timeout=120 \
+              --output /tmp/$(basename "$nb") \
+              || { echo "FAIL: $nb"; exit 1; }
+          done
