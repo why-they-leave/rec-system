@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "da-template"
+name = "rec-system"
 version = "0.1.0"
-description = "데이터분석·ML 프로젝트 템플릿"
+description = "행동 프로필 기반 추천 시스템 (ecommerce-funnel-analysis 연계)"
 requires-python = ">=3.11"
 dependencies = [
     # 데이터
@@ -24,6 +24,8 @@ dependencies = [
     "seaborn>=0.13",
     "plotly>=5.18",
     "streamlit>=1.30",
+    # 데이터 다운로드
+    "gdown>=5.0",
     # 설정
     "pyyaml>=6.0",
     "python-dotenv>=1.0",
