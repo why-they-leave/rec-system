@@ -27,9 +27,11 @@ credentials/
 data/raw/
 data/interim/
 data/processed/
+data/dashboard/*
 !data/raw/.gitkeep
 !data/interim/.gitkeep
 !data/processed/.gitkeep
+!data/dashboard/.gitkeep
 
 # 모델 아티팩트
 models/
