@@ -1,0 +1,70 @@
+/* ===== 공통 CSS 변수 ===== */
+:root {
+    --card-border: #e0e0e0;
+    --card-radius: 12px;
+    --text-meta: #888;
+    --text-muted: #aaa;
+    --badge-default-bg: #f0f4ff;
+    --badge-default-fg: #3355cc;
+}
+
+/* ===== 상품 카드 ===== */
+.product-card {
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius);
+    padding: 16px 12px;
+    text-align: center;
+    background: #ffffff;
+    transition: box-shadow 0.2s;
+    height: 100%;
+}
+.product-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.product-name  { font-size: 0.8rem;  font-weight: 600; margin: 4px 0; word-break: break-word; }
+.product-meta  { font-size: 0.72rem; color: var(--text-meta);  margin: 2px 0; }
+.product-price { font-size: 0.85rem; font-weight: 700; color: #1a1a1a; margin: 4px 0; }
+.product-rank  { font-size: 0.72rem; color: var(--text-muted); margin: 2px 0; }
+
+/* ===== 배지 ===== */
+.badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    padding: 2px 8px;
+    border-radius: 99px;
+    background: var(--badge-default-bg);
+    color: var(--badge-default-fg);
+    margin-top: 6px;
+}
+.badge-up   { background: #ecfdf5; color: #16a34a; }
+.badge-down { background: #fff1f2; color: #dc2626; }
+.badge-same { background: #f3f4f6; color: #6b7280; }
+
+/* ===== 현재 상품 가로형 카드 (상세 페이지) ===== */
+.current-product-card {
+    border: 2px solid #6366f1;
+    border-radius: var(--card-radius);
+    padding: 16px 20px;
+    background: #f5f3ff;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+/* ===== 유저 정보 카드 (사이드바) ===== */
+.user-info-card {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.82rem;
+    line-height: 1.8;
+}
+
+/* ===== 섹션 구분선 ===== */
+.section-divider {
+    border: none;
+    border-top: 2px solid #e5e7eb;
+    margin: 12px 0;
+}
