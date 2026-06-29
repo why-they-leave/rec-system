@@ -68,3 +68,15 @@
     border-top: 2px solid #e5e7eb;
     margin: 12px 0;
 }
+
+/* ===== 사이드바: 타이틀을 페이지 네비게이션보다 위에 표시 ===== */
+[data-testid="stSidebar"] > div:first-child {
+    display: flex !important;
+    flex-direction: column !important;
+}
+[data-testid="stSidebarNav"] {
+    order: 10 !important;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 0.5rem;
+    margin-top: 0.5rem;
+}
