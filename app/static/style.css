@@ -69,6 +69,70 @@
     margin: 12px 0;
 }
 
+/* ===== 카드 그리드: 같은 행 카드 높이 통일 + 버튼 하단 정렬 ===== */
+/*
+ * 대상: stColumn(algo) 안의 stHorizontalBlock(카드행) 안의 stColumn(카드열).
+ * 직접 자식(>)과 일반 후손( ) 두 가지 형태로 선언해 Streamlit 버전별
+ * 중간 wrapper div 유무를 모두 커버한다.
+ */
+
+/* 1. 카드 행의 모든 열이 같은 높이로 늘어나도록 */
+[data-testid="stColumn"] [data-testid="stHorizontalBlock"] {
+    align-items: stretch !important;
+}
+
+/* 2. 카드 열 자체를 세로 flex 컨테이너로 */
+[data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* 3. 카드 열 내부 wrapper div → stVerticalBlock까지 flex:1 세로 체인 */
+[data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] > div,
+[data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] > [data-testid="stVerticalBlock"],
+[data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] > div > [data-testid="stVerticalBlock"] {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
+}
+
+/* 4. stVerticalBlock 첫 번째 자식(카드 wrapper)이 버튼 위 공간을 채우도록 */
+[data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] > div > [data-testid="stVerticalBlock"] > div:first-child,
+[data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] > [data-testid="stVerticalBlock"] > div:first-child {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* 5. 카드 border 컨테이너(stVerticalBlockBorderWrapper)가 할당 공간 전부 채우도록 */
+[data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] [data-testid="stVerticalBlockBorderWrapper"] {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* ===== ALS / LightGCN 구분선 ===== */
+/*
+ * st.columns(2) 의 기본 gap = 1rem.
+ * ALS 컬럼(data-algo-left 마커 포함)의 ::after 가상 요소를
+ * right: -0.5rem 으로 배치해 gap 정중앙에 1px 선을 그린다.
+ * overflow: visible 로 컬럼 경계를 넘어 gap 영역에 노출.
+ */
+[data-testid="stColumn"]:has([data-algo-left]) {
+    position: relative !important;
+    overflow: visible !important;
+}
+[data-testid="stColumn"]:has([data-algo-left])::after {
+    content: '';
+    position: absolute;
+    right: -0.5rem;
+    top: 0;
+    width: 1px;
+    min-height: 1000px;
+    background: #f0ece4;
+    pointer-events: none;
+}
+
 /* ===== 사이드바: 타이틀을 페이지 네비게이션보다 위에 표시 ===== */
 [data-testid="stSidebar"] > div:first-child {
     display: flex !important;

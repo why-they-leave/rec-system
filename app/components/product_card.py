@@ -380,9 +380,15 @@ def extract_product_type(name: str) -> str:
     return " ".join(parts[:-2]) if len(parts) >= 3 else name
 
 
-def _badge_widget(badge: str) -> None:
-    """배지 내용에 따라 native Streamlit 위젯으로 표시 — HTML 없음."""
-    if "▲" in badge or "공통" in badge:
+def _badge_widget(badge: str | None) -> None:
+    """배지 내용에 따라 native Streamlit 위젯으로 표시.
+    badge가 None이면 동일 높이의 투명 플레이스홀더를 렌더링해 카드 높이를 고정.
+    """
+    if badge is None:
+        st.markdown('<div style="height:38px"></div>', unsafe_allow_html=True)
+    elif "공통" in badge:
+        st.success(badge, icon=None)
+    elif "▲" in badge:
         st.success(badge, icon=None)
     elif "▼" in badge:
         st.error(badge, icon=None)
@@ -402,8 +408,17 @@ def _circle(color: str, emoji: str, size: int = 60) -> None:
     )
 
 
-def render_product_card(item: pd.Series, rank: int, badge: str = None) -> None:
-    """상품 카드 렌더링."""
+def render_product_card(
+    item: pd.Series,
+    rank: int,
+    badge: str = None,
+    rank_note: str = None,
+) -> None:
+    """상품 카드 렌더링.
+
+    rank_note: caption에 표시할 순위 변화 텍스트 (예: "3→1 ▲+2").
+               지정하면 기본 rank 표시 대신 사용.
+    """
     color = extract_color(item["name"])
     product_type = extract_product_type(item["name"])
     emoji = _PRODUCT_EMOJI.get(product_type.lower().replace(" ", "_"), "🏷️")
@@ -413,11 +428,11 @@ def render_product_card(item: pd.Series, rank: int, badge: str = None) -> None:
         st.write(f"**{item['name']}**")
         st.caption(item['category'])
         st.write(f"**$ {float(item['price_usd']):.2f}**")
-        st.caption(f"★ rank: {rank}")
-
-        # badge가 있을 때만 — None 케이스는 아무것도 출력하지 않음
-        if badge:
-            _badge_widget(badge)
+        if rank_note:
+            st.caption(f"★ {rank_note}")
+        else:
+            st.caption(f"★ rank: {rank}")
+        _badge_widget(badge)  # 항상 호출 — None이면 동일 높이 플레이스홀더
 
 
 def render_current_product_card(item: pd.Series) -> None:
