@@ -27,7 +27,7 @@ credentials/
 data/raw/
 data/interim/
 data/processed/
-data/dashboard/
+data/dashboard/*
 !data/raw/.gitkeep
 !data/interim/.gitkeep
 !data/processed/.gitkeep

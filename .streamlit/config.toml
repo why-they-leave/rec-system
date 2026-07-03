@@ -1,0 +1,10 @@
+[server]
+port = 8501
+enableStaticServing = true   # app/static/ 하위 파일을 HTTP로 서빙 (아이콘 이미지 표시에 필요)
+
+[theme]
+primaryColor = "#6366f1"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f8fafc"
+textColor = "#1a1a1a"
+font = "sans serif"

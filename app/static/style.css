@@ -1,0 +1,146 @@
+/* ===== 공통 CSS 변수 ===== */
+:root {
+    --card-border: #e0e0e0;
+    --card-radius: 12px;
+    --text-meta: #888;
+    --text-muted: #aaa;
+    --badge-default-bg: #f0f4ff;
+    --badge-default-fg: #3355cc;
+}
+
+/* ===== 상품 카드 ===== */
+.product-card {
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius);
+    padding: 16px 12px;
+    text-align: center;
+    background: #ffffff;
+    transition: box-shadow 0.2s;
+    height: 100%;
+}
+.product-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.product-name  { font-size: 0.8rem;  font-weight: 600; margin: 4px 0; word-break: break-word; }
+.product-meta  { font-size: 0.72rem; color: var(--text-meta);  margin: 2px 0; }
+.product-price { font-size: 0.85rem; font-weight: 700; color: #1a1a1a; margin: 4px 0; }
+.product-rank  { font-size: 0.72rem; color: var(--text-muted); margin: 2px 0; }
+
+/* ===== 배지 ===== */
+.badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    padding: 2px 8px;
+    border-radius: 99px;
+    background: var(--badge-default-bg);
+    color: var(--badge-default-fg);
+    margin-top: 6px;
+}
+.badge-up   { background: #ecfdf5; color: #16a34a; }
+.badge-down { background: #fff1f2; color: #dc2626; }
+.badge-same { background: #f3f4f6; color: #6b7280; }
+
+/* ===== 현재 상품 가로형 카드 (상세 페이지) ===== */
+.current-product-card {
+    border: 2px solid #6366f1;
+    border-radius: var(--card-radius);
+    padding: 16px 20px;
+    background: #f5f3ff;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+/* ===== 유저 정보 카드 (사이드바) ===== */
+.user-info-card {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.82rem;
+    line-height: 1.8;
+}
+
+/* ===== 섹션 구분선 ===== */
+.section-divider {
+    border: none;
+    border-top: 2px solid #e5e7eb;
+    margin: 12px 0;
+}
+
+/* ===== 카드 그리드: 같은 행 카드 높이 통일 + 버튼 하단 정렬 ===== */
+/*
+ * 대상: stColumn(algo) 안의 stHorizontalBlock(카드행) 안의 stColumn(카드열).
+ * 직접 자식(>)과 일반 후손( ) 두 가지 형태로 선언해 Streamlit 버전별
+ * 중간 wrapper div 유무를 모두 커버한다.
+ */
+
+/* 1. 카드 행의 모든 열이 같은 높이로 늘어나도록 */
+[data-testid="stColumn"] [data-testid="stHorizontalBlock"] {
+    align-items: stretch !important;
+}
+
+/* 2. 카드 열 자체를 세로 flex 컨테이너로 */
+[data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* 3. 카드 열 내부 wrapper div → stVerticalBlock까지 flex:1 세로 체인 */
+[data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] > div,
+[data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] > [data-testid="stVerticalBlock"],
+[data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] > div > [data-testid="stVerticalBlock"] {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
+}
+
+/* 4. stVerticalBlock 첫 번째 자식(카드 wrapper)이 버튼 위 공간을 채우도록 */
+[data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] > div > [data-testid="stVerticalBlock"] > div:first-child,
+[data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] > [data-testid="stVerticalBlock"] > div:first-child {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* 5. 카드 border 컨테이너(stVerticalBlockBorderWrapper)가 할당 공간 전부 채우도록 */
+[data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] [data-testid="stVerticalBlockBorderWrapper"] {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* ===== ALS / LightGCN 구분선 ===== */
+/*
+ * st.columns(2) 의 기본 gap = 1rem.
+ * ALS 컬럼(data-algo-left 마커 포함)의 ::after 가상 요소를
+ * right: -0.5rem 으로 배치해 gap 정중앙에 1px 선을 그린다.
+ * overflow: visible 로 컬럼 경계를 넘어 gap 영역에 노출.
+ */
+[data-testid="stColumn"]:has([data-algo-left]) {
+    position: relative !important;
+    overflow: visible !important;
+}
+[data-testid="stColumn"]:has([data-algo-left])::after {
+    content: '';
+    position: absolute;
+    right: -0.5rem;
+    top: 0;
+    width: 1px;
+    min-height: 1000px;
+    background: #f0ece4;
+    pointer-events: none;
+}
+
+/* ===== 사이드바: 타이틀을 페이지 네비게이션보다 위에 표시 ===== */
+[data-testid="stSidebar"] > div:first-child {
+    display: flex !important;
+    flex-direction: column !important;
+}
+[data-testid="stSidebarNav"] {
+    order: 10 !important;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 0.5rem;
+    margin-top: 0.5rem;
+}
