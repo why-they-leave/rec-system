@@ -1,4 +1,4 @@
-# 📊 [결과 레포트] 가중치 기반 이커머스 보완재 추천 시스템 성능 평가
+# [ML] 가중치 기반 보완재 추천 시스템 성능 평가 — 2026-07-03
 
 ## 1. 프로젝트 개요 및 실험 설계
 본 프로젝트는 이커머스 세션 로그 데이터를 활용하여 유저가 탐색 중인 상품의 **보완재(Cross-selling)**를 정교하게 제안하는 추천 엔진 개발을 목표로 합니다. 
@@ -69,6 +69,32 @@ $$
 
 ## 5. 결론 및 차세대 고도화 방향
 본 실험은 가중치 모델을 도입하여 베이스라인(purchase 만 포함했을때) 대비 **2.1배의 성능 향상**을 이루어내는 데 성공했습니다. 데이터 불일치 이슈가 없음을 정량적으로 확인한 만큼, 향후 스코어를 10~20%대 이상으로 혁신적으로 끌어올리기 위해 **"유저별 페르소나(refined_segment) 기반 세그먼트 분할 모델"**로 고도화를 진행할 것을 제안합니다.
+
+---
+
+## 6. rec-system 데모 연결 지점
+
+본 모델의 추론 결과물은 데모 UI **Page 3 — 연관 상품 추천**의 보완재(Item-based CF) 섹션에 직접 연결됩니다.
+
+| 항목 | 내용 |
+| :--- | :--- |
+| **대상 파일** | `data/dashboard/PRED_DETAIL_RECOMMEND.csv` |
+| **연결 컬럼** | `rec_type = "cf"` |
+| **입력 키** | `item_id` (조회 중인 상품) |
+| **출력** | `rec_item_id`, `score`, `rank` (상위 5개 추천 보완재) |
+
+현재 데모에는 더미 데이터가 채워져 있으며, 본 모델의 실제 추론 결과(`top_n_recs`)를 아래 포맷으로 변환하여 교체하면 됩니다.
+
+```python
+# top_n_recs 컬럼: prod_A, prod_B, score, rank
+result = (
+    top_n_recs
+    .rename(columns={"prod_A": "item_id", "prod_B": "rec_item_id"})
+    .assign(rec_type="cf")
+    [["item_id", "rec_item_id", "score", "rank", "rec_type"]]
+)
+result.to_csv("data/dashboard/PRED_DETAIL_RECOMMEND.csv", index=False)
+```
 
 ---
 
