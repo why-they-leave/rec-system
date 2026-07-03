@@ -10,6 +10,8 @@
 
 ### 문서
 
+- 보완재 추천 레포트 제목 양식 통일 및 rec-system 연결 지점 추가, 노트북 파일명 규칙 적용 ([ae08cc3](https://github.com/JungYeoni/da-template/commit/ae08cc3f4654ee7b35a335ec917b8259c1441daa))
+- CHANGELOG 자동 업데이트 [skip ci] ([8975a4e](https://github.com/JungYeoni/da-template/commit/8975a4e2ab5f14f1835fe59f5459d2f90a1bf52e))
 - CHANGELOG 자동 업데이트 [skip ci] ([297f526](https://github.com/JungYeoni/da-template/commit/297f526efab7b682a8eb71facf0adafcbfb5b5a3))
 - CHANGELOG 자동 업데이트 [skip ci] ([c0b46f5](https://github.com/JungYeoni/da-template/commit/c0b46f5611e32077bbed971ad1a1740654905d72))
 - CHANGELOG 자동 업데이트 [skip ci] ([74cecc5](https://github.com/JungYeoni/da-template/commit/74cecc578a58111ee83fc5e9385deab365d44d4a))
