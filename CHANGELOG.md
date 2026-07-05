@@ -21,6 +21,7 @@
 
 ### 문서
 
+- CHANGELOG 자동 업데이트 [skip ci] ([0b73671](https://github.com/JungYeoni/da-template/commit/0b736718cea250c969d2d83813e126cb7d0f5791))
 - CHANGELOG 자동 업데이트 [skip ci] ([f2761d2](https://github.com/JungYeoni/da-template/commit/f2761d2253dc92629e1b0be32b1086914b765c95))
 - CHANGELOG 자동 업데이트 [skip ci] ([5d68079](https://github.com/JungYeoni/da-template/commit/5d68079723cf1f6a21af05c4a0ecb8b362121de0))
 - 레포트 날짜 노트북 파일명과 통일 (2026-07-01) ([925169d](https://github.com/JungYeoni/da-template/commit/925169dd7a60f156540fe5987b2a3f43003d4602))
