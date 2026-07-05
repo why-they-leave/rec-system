@@ -98,3 +98,64 @@ result.to_csv("data/dashboard/PRED_DETAIL_RECOMMEND.csv", index=False)
 
 ---
 
+## 7. 부록 — 코드 전체 흐름 (`bowanjae_pipeline.py`)
+
+현재 `bowanjae_pipeline.py`(레포 루트)는 아래 4개 함수 + `main` 실행부로 구성된 단일 스크립트다. 유지보수성 개선(모듈 분리)은 [이슈 #7](https://github.com/why-they-leave/rec-system/issues/7)에서 별도로 추적 중이며, 여기서는 현재 코드가 실제로 어떻게 동작하는지 흐름을 정리한다.
+
+### 7.1 파이프라인 다이어그램
+
+```
+[1] load_data()
+    products.csv, events.csv, sessions.csv, orders.csv, order_items.csv
+        │
+        ▼
+[2] preprocess_data(events, sessions, orders, order_items)
+    ├─ timestamp/start_time/order_time → datetime 변환
+    ├─ events + sessions  → customer_id 결합 (df_base_events)
+    ├─ event_type 분기
+    │   ├─ add_to_cart / page_view → df_non_purchase
+    │   └─ purchase → orders/order_items와 조인해 실제 product_id 복원 → df_purchase_final
+    └─ 두 그룹을 세로 결합 후 (customer_id, timestamp) 정렬
+        → df_integrated_logs  (공통 컬럼: customer_id, session_id, event_id, timestamp, event_type, product_id)
+        │
+        ▼
+[3] run_modeling(df_integrated_logs, products)
+    ├─ session_id 기준 상품 2개 이상인 유효 세션만 추출
+    ├─ train_test_split(test_size=0.2, random_state=42) → train_df / test_df
+    ├─ action_weights = {purchase: 0.6, add_to_cart: 0.3, page_view: 0.1}
+    ├─ train_df를 세션 단위로 순회하며
+    │   ├─ product_scores[product] 누적  (세션 내 가중치 합)
+    │   └─ pair_scores[(A, B)] 누적       (min(weight_A, weight_B))
+    ├─ P(B|A) = pair_scores[(A,B)] / product_scores[A]
+    ├─ cat_A != cat_B 필터링 (동일 카테고리 제외 → 대체재 아닌 보완재만)
+    └─ prod_A 기준 score 내림차순 rank → Top 5 추출
+        → top_n_recs, df_recs, train_df, test_df
+        │
+        ▼
+[4] evaluate_model(train_df, test_df, df_recs)
+    ├─ train/test 간 customer_id, product_id overlap 비율 출력 (Cold Start 점검)
+    └─ test_df 세션별로 실제 동시 등장 상품(actual_complements) vs
+       추천 top5(predicted_recs) 비교 → HIT_RATE 산출 및 출력
+        │
+        ▼
+[main]
+    output_df = top_n_recs[["prod_A_name", "prod_B_name", "score", "rank"]]
+    → {DATA_DIR}/bowanjae.csv 로 저장
+```
+
+### 7.2 함수별 입출력 요약
+
+| 함수 | 입력 | 출력 | 비고 |
+| :--- | :--- | :--- | :--- |
+| `load_data` | 없음 (`DATA_DIR` 하드코딩 경로에서 CSV 5종 로드) | `products, events, sessions, orders, order_items` | 경로가 로컬 절대경로로 고정돼 있어 실행 환경에 따라 수정 필요 |
+| `preprocess_data` | `events, sessions, orders, order_items` | `df_integrated_logs` | purchase 이벤트는 `(customer_id, timestamp)` 기준으로 orders와 매칭 후 실제 구매 상품으로 복원 |
+| `run_modeling` | `df_integrated_logs, products` | `top_n_recs, df_recs, train_df, test_df` | 학습은 `train_df`에서만 수행 (leakage 방지), `cat_A != cat_B` 룰로 보완재만 남김 |
+| `evaluate_model` | `train_df, test_df, df_recs` | 없음 (콘솔 출력만) | Hit Rate·Cold Start 비율을 반환하지 않고 print만 하므로, 리포트 자동화 시 반환값 형태로 변경 필요 |
+
+### 7.3 현재 구조에서 눈에 띄는 유지보수 포인트
+- `evaluate_model`이 지표를 반환하지 않고 `print`만 하므로, 이 결과(Hit Rate 1.75% 등 위 2장 수치)는 매 실행마다 콘솔 로그를 수동으로 옮겨 적어야 리포트에 반영 가능
+- `DATA_DIR`이 Windows 로컬 절대경로로 고정 — 다른 팀원 환경이나 CI에서 그대로 실행 불가
+- 로딩·전처리·모델링·평가가 한 파일에 있어 ALS 등 다른 추천 모델과 구조가 다름 → 모듈 분리 및 `data/dashboard/` 연동 작업은 [이슈 #7](https://github.com/why-they-leave/rec-system/issues/7)에서 진행 예정
+
+---
+
