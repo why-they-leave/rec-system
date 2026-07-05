@@ -21,6 +21,8 @@
 
 ### 문서
 
+- Bowanjae_pipeline 코드 흐름 정리 추가 ([3b9bed7](https://github.com/JungYeoni/da-template/commit/3b9bed702b619c9953e2d7bb892518970022acca))
+- CHANGELOG 자동 업데이트 [skip ci] ([507a633](https://github.com/JungYeoni/da-template/commit/507a6337b118b2f6a5952a93a273c7a0e3cfde09))
 - CHANGELOG 자동 업데이트 [skip ci] ([0b73671](https://github.com/JungYeoni/da-template/commit/0b736718cea250c969d2d83813e126cb7d0f5791))
 - CHANGELOG 자동 업데이트 [skip ci] ([f2761d2](https://github.com/JungYeoni/da-template/commit/f2761d2253dc92629e1b0be32b1086914b765c95))
 - CHANGELOG 자동 업데이트 [skip ci] ([5d68079](https://github.com/JungYeoni/da-template/commit/5d68079723cf1f6a21af05c4a0ecb8b362121de0))
