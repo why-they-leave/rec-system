@@ -34,7 +34,9 @@ src/
     als/
       model.py            # backend/ALS/als_model.py 이관 + 버그 수정 + 서빙용 아티팩트 확장
       evaluate.py          # backend/ALS/als_evaluate.py 이관
-    complementary_recommender.py   # 이미 존재 — 그대로 재사용 (run_modeling)
+    complementary/
+      model.py              # 기존 src/modeling/complementary_recommender.py 이관 (run_modeling, 재사용/무수정)
+      run_pipeline.py        # 신규 — features → model → evaluation 순서로 호출하는 배치 실행 스크립트
     twiddler/
       rerank.py             # 페르소나 가중치 재랭킹 — 인터페이스만 정의, 본 구현은 TODO 스텁
     lightgcn/
@@ -56,7 +58,7 @@ backend/                   # FastAPI 서빙 레이어 (Streamlit이 호출하는
       recommend_detail.py     # GET /recommend/detail
     services/
       als_service.py          # src.modeling.als 아티팩트 로드 + 추천 조회
-      complementary_service.py  # src.modeling.complementary_recommender 산출 테이블 로드 + item_id 조회
+      complementary_service.py  # src.modeling.complementary.run_pipeline 산출 테이블 로드 + item_id 조회
       twiddler_service.py      # 스텁: "after" 요청 시 재랭킹 미구현 → before로 폴백 + 플래그 반환
       lightgcn_service.py      # 스텁: 미구현 상태를 명시적으로 응답(빈 리스트 + status="not_implemented")
     # 각 서비스는 "아티팩트/테이블을 어디서 읽어오는가"를 함수 하나로 캡슐화한다.
@@ -69,7 +71,7 @@ models/ALS/als_model.pkl     # (gitignore) 학습된 pickle 아티팩트 — bac
 
 data/
   outputs/
-    complementary/detail_cf.csv   # complementary_recommender 산출물 (item_id, rec_item_id, score, rank)
+    complementary/detail_cf.csv   # src/modeling/complementary/model.py 산출물 (item_id, rec_item_id, score, rank)
                                     # → 추후 recommend.db 테이블로 전환 예정
 
 app/
@@ -100,10 +102,10 @@ app/
 
 ## Phase 2 — 보완재(complementary item, 구 backend/TF-IDF) 연결
 
-이미 존재하는 `src/modeling/complementary_recommender.py::run_modeling`과 `src/evaluation/evaluate_complementary.py::evaluate_model`을 **그대로 재사용**한다(새로 작성하지 않음). 부족한 것은 이 둘을 잇는 데이터 로딩/실행 스크립트와 배치→API 연결 부분뿐이다.
+이미 존재하는 `complementary_recommender.py::run_modeling`(현재 `src/modeling/complementary/model.py`로 이관됨)과 `src/evaluation/evaluate_complementary.py::evaluate_model`을 **그대로 재사용**한다(새로 작성하지 않음). 부족한 것은 이 둘을 잇는 데이터 로딩/실행 스크립트와 배치→API 연결 부분뿐이다.
 
 1. `bowanjae_pipeline.py`의 `load_data`/`preprocess_data`(원본 이벤트·세션·주문 로그 → `df_integrated_logs` 생성)를 `src/features/build_complementary_features.py`로 이관하면서 하드코딩된 `DATA_DIR`(`C:\Users\USER\OneDrive\Desktop\dataset`)을 인자/설정으로 분리한다.
-2. 이 셋(`build_complementary_features` → `complementary_recommender.run_modeling` → `evaluate_complementary.evaluate_model`)을 순서대로 호출하는 배치 실행 스크립트(예: `src/modeling/run_complementary_pipeline.py` 또는 CLI 진입점)를 추가한다.
+2. 이 셋(`build_complementary_features` → `complementary.model.run_modeling` → `evaluate_complementary.evaluate_model`)을 순서대로 호출하는 배치 실행 스크립트 `src/modeling/complementary/run_pipeline.py`를 추가한다.
 3. `run_modeling`이 반환하는 `top_n_recs`(`prod_A, prod_B, score, rank`, id 그대로 보존됨)를 `item_id, rec_item_id, score, rank` 컬럼으로 rename해 `data/outputs/complementary/detail_cf.csv`에 저장(`reports/item_recommendation.md`가 이미 문서화한 변환과 동일).
 4. `backend/api/services/complementary_service.py`가 기동 시 이 테이블을 로드하고, `GET /recommend/detail?item_id=&rec_type=cf` 요청에 대해 `item_id` 기준 top-N을 조회해 반환. 로딩 함수를 한 곳에 모아 두어 추후 `recommend.db` SQLite 테이블로 바꿀 때 이 함수만 교체하면 되게 한다.
 5. `rec_type="content"`(대체재/진짜 콘텐츠 기반)는 알고리즘 자체가 없으므로 이번 범위에서는 **빈 결과 + `status="not_implemented"`** 로 응답하는 스텁만 만들고, 화면에서는 "준비 중" 안내로 처리.
@@ -139,12 +141,19 @@ app/
 - ALS는 `backend/ALS/als_model.pkl`(학습 완료된 아티팩트)을 그대로 활용하므로 더 이상 원본 이벤트 데이터가 없어도 Phase 1 진행에 지장 없음. 다만 already-liked 필터링·cold 유저 폴백까지 완전히 재현하려면 추후 원본 이벤트 데이터(`events.csv, sessions.csv, orders.csv, order_items.csv`류)로 재학습이 필요 — 이건 후속 개선 항목으로 남겨둠.
 - 보완재(complementary) 로직에 필요한 원본 로그(`bowanjae_pipeline.py`가 참조하던 `events.csv, sessions.csv, orders.csv, order_items.csv`, 현재 로컬 경로 `C:\Users\USER\OneDrive\Desktop\dataset`)는 여전히 리포 안에 없음 — `data/raw/`로 옮겨야 Phase 2의 배치 재실행(`build_complementary_features` → `run_modeling`)이 가능함. 이미 산출된 `backend/TF-IDF/bowanjae.csv`(상품명 기준)가 있으므로, 원본 로그 확보 전까지는 이 파일을 임시로 item_id 매핑해 사용하는 것도 가능(단, `products.csv`의 상품명이 유일함을 전제로 함 — 중복 상품명이 있으면 매핑이 부정확해질 수 있어 확인 필요).
 
-## 진행 상황
+## 진행 상황 (2026-07-05 기준)
 
 - [x] 계획 수립 및 승인
-- [ ] Phase 1 — ALS 실연결
-- [ ] Phase 2 — 보완재 연결
-- [ ] Phase 3 — Twiddler 스텁
-- [ ] Phase 4 — LightGCN 스텁
-- [ ] app 측 연동(api_client.py, data_loader.py, main.py)
-- [ ] 검증
+- [x] Phase 1 — ALS 실연결: `models/ALS/als_model.pkl`로 아티팩트 이관, `src/modeling/als/{model,evaluate}.py`로 코드 이관(경로 버그 수정 + matrix/popular_items/user_type_map 저장 확장), `backend/api/services/als_service.py` 작성. 실제 pickle 로드해 유저 1번 추천 확인 완료(19,930명 × 1,197개 상품).
+- [x] Phase 2 — 보완재 연결: `src/features/build_complementary_features.py`(로딩/전처리), `src/modeling/complementary/run_pipeline.py`(원본 로그 확보 후 재실행할 정식 배치 스크립트) 작성. 원본 로그가 아직 없어 `scripts/convert_bowanjae_to_detail_cf.py`로 기존 `backend/TF-IDF/bowanjae.csv`(상품명 기준)를 `data/outputs/complementary/detail_cf.csv`(item_id 기준)로 변환해 즉시 서빙 가능하게 함. `backend/TF-IDF/`, 루트 `bowanjae_pipeline.py` 삭제 완료.
+- [x] 폴더 정리(후속 요청): 기존 top-level `src/modeling/complementary_recommender.py`를 다른 알고리즘(als/twiddler/lightgcn)과 동일하게 `src/modeling/complementary/model.py`로 옮기고, 배치 스크립트도 `src/modeling/complementary/run_pipeline.py`로 함께 이동. 이 모듈을 참조하던 `scripts/run_bowanjae_pipeline.py`(사용자가 별도로 작성한 실행 스크립트)의 import 경로도 함께 수정.
+- [x] Phase 3 — Twiddler 스텁: `src/modeling/twiddler/rerank.py`(NotImplementedError) + `backend/api/services/twiddler_service.py`(after 요청 시 before로 폴백 + not_implemented 플래그).
+- [x] Phase 4 — LightGCN 스텁: `src/modeling/lightgcn/model.py`(NotImplementedError) + `backend/api/services/lightgcn_service.py`(not_implemented 고정 응답).
+- [x] app 측 연동: `app/utils/api_client.py` 신규 작성, `app/utils/data_loader.py`/`app/main.py`를 API 호출 기반으로 재작성(카탈로그 데이터는 CSV 유지).
+- [x] 검증: `uv`로 `.venv` 생성 후 `uvicorn backend.main:app`/`streamlit run app/main.py` 실제 기동 확인. `streamlit.testing.v1.AppTest`로 메인 추천(ALS 실데이터 렌더링, LightGCN/Twiddler-after not_implemented 안내 정상 표시)과 상세 추천(보완재 카드 렌더링) 페이지 모두 예외 없이 동작 확인.
+
+### 남은 후속 작업
+- ALS의 already-liked 필터링·cold 폴백 완전화, 보완재 정식 배치 파이프라인 재실행 — 둘 다 원본 이벤트/세션/주문 로그 확보가 선행 조건.
+- Twiddler 실제 재랭킹 알고리즘, LightGCN 실제 학습/추론 구현.
+- `configs/complementary/params.yaml`은 만들지 않음 — `src/modeling/complementary/model.py`(구 `complementary_recommender.py`)를 원본 그대로 재사용하기로 해 하드코딩된 action_weights/top_n을 그대로 두었고(사용자 지시: 파일을 그대로 활용), 실제로 쓰이지 않는 설정 파일을 미리 만들지 않았음.
+- CSV → SQLite(`recommend.db`) 전환 시 `app/utils/data_loader.py`의 카탈로그 로더와 `backend/api/services/*`의 테이블 로딩 함수만 교체하면 되도록 설계해 둠.
