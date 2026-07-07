@@ -7,7 +7,7 @@ import pandas as pd
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # 바뀐 파이프라인 모듈/함수 가져오기
-from src.modeling.complementary_recommender import run_modeling
+from src.modeling.complementary.model import run_modeling
 from src.evaluation.evaluate_complementary import evaluate_model
 
 def setup_logging():
@@ -34,8 +34,8 @@ def main():
     processed_data_dir = os.path.join(base_dir, "data", "processed")
     raw_data_dir = os.path.join(base_dir, "data", "raw")
     
-    # 출력 경로 설정 (대시보드 저장용)
-    output_dir = os.path.join(base_dir, "data", "dashboard")
+    # 출력 경로 설정 (backend/api/services/complementary_service.py가 읽는 경로)
+    output_dir = os.path.join(base_dir, "data", "outputs", "complementary")
     os.makedirs(output_dir, exist_ok=True)
 
     try:
@@ -55,11 +55,10 @@ def main():
         result = (
             top_n_recs
             .rename(columns={"prod_A": "item_id", "prod_B": "rec_item_id"})
-            .assign(rec_type="cf")
-            [["item_id", "rec_item_id", "score", "rank", "rec_type"]]
+            [["item_id", "rec_item_id", "score", "rank"]]
         )
         
-        output_path = os.path.join(output_dir, "PRED_DETAIL_RECOMMEND.csv")
+        output_path = os.path.join(output_dir, "detail_cf.csv")
         result.to_csv(output_path, index=False)
         logger.info(f"Pipeline successfully finished. Output saved to {output_path}")
 
