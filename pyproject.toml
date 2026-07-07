@@ -29,6 +29,12 @@ dependencies = [
     # 설정
     "pyyaml>=6.0",
     "python-dotenv>=1.0",
+    # 추천 시스템
+    "implicit>=0.7",
+    # 추천 서빙 API
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "requests>=2.31",
 ]
 
 [project.optional-dependencies]
