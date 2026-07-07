@@ -4,7 +4,11 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-DATA_SOURCE = "csv"  # "csv" 또는 "sqlite"
+from . import api_client
+
+DATA_SOURCE = "sqlite"  # "csv" 또는 "sqlite" — 카탈로그성 데이터(상품/유저)에만 적용.
+                        # 추천 데이터는 더 이상 여기서 읽지 않고 backend API를 호출한다(api_client 참고).
+                        # recommend.db는 scripts/generate_demo_data.py가 생성한다.
 DATA_DIR = Path("data/dashboard")
 SQLITE_PATH = DATA_DIR / "recommend.db"
 
@@ -13,23 +17,8 @@ SQLITE_PATH = DATA_DIR / "recommend.db"
 _PRODUCTS_RENAME = {"product_id": "item_id"}
 _PRODUCTS_COLS   = ["item_id", "name", "category", "price_usd"]
 
-
-@st.cache_data
-def load_recommendations() -> pd.DataFrame:
-    """PRED_MAIN_RECOMMEND 로드"""
-    if DATA_SOURCE == "sqlite":
-        with sqlite3.connect(SQLITE_PATH) as conn:
-            return pd.read_sql("SELECT * FROM pred_main_recommend", conn)
-    return pd.read_csv(DATA_DIR / "PRED_MAIN_RECOMMEND.csv")
-
-
-@st.cache_data
-def load_detail_recommendations() -> pd.DataFrame:
-    """PRED_DETAIL_RECOMMEND 로드"""
-    if DATA_SOURCE == "sqlite":
-        with sqlite3.connect(SQLITE_PATH) as conn:
-            return pd.read_sql("SELECT * FROM pred_detail_recommend", conn)
-    return pd.read_csv(DATA_DIR / "PRED_DETAIL_RECOMMEND.csv")
+_MAIN_REC_COLUMNS   = ["user_id", "item_id", "score", "rank", "model_type", "twiddler", "user_type"]
+_DETAIL_REC_COLUMNS = ["item_id", "rec_item_id", "score", "rank", "twiddler"]
 
 
 @st.cache_data
@@ -46,17 +35,11 @@ def load_products() -> pd.DataFrame:
 
 
 @st.cache_data
-def load_persona_labels() -> pd.DataFrame:
-    """persona_labels 로드"""
-    if DATA_SOURCE == "sqlite":
-        with sqlite3.connect(SQLITE_PATH) as conn:
-            return pd.read_sql("SELECT * FROM persona_labels", conn)
-    return pd.read_csv(DATA_DIR / "persona_labels.csv")
-
-
-@st.cache_data
 def load_demo_users() -> pd.DataFrame:
     """demo_users 로드"""
+    if DATA_SOURCE == "sqlite":
+        with sqlite3.connect(SQLITE_PATH) as conn:
+            return pd.read_sql("SELECT * FROM demo_users", conn)
     return pd.read_csv(DATA_DIR / "demo_users.csv")
 
 
@@ -66,21 +49,37 @@ def load_categories() -> list[str]:
     return sorted(load_products()["category"].unique().tolist())
 
 
-def get_user_recommendations(
-    rec_df: pd.DataFrame,
+@st.cache_data(ttl=30)
+def get_main_recommendations(
     user_id: int,
     model_type: str,
-    twiddler: str,
+    twiddler: str = "before",
     top_n: int = 10,
-) -> pd.DataFrame:
-    """특정 유저의 모델/트위들러 조합 추천 결과 반환"""
-    return (
-        rec_df[
-            (rec_df["user_id"] == user_id)
-            & (rec_df["model_type"] == model_type)
-            & (rec_df["twiddler"] == twiddler)
-        ]
-        .sort_values("rank")
-        .head(top_n)
-        .reset_index(drop=True)
-    )
+    graph_type: str = "tripartite",
+) -> tuple[pd.DataFrame, str, str | None]:
+    """
+    특정 유저/모델/twiddler 조합의 추천을 backend API에서 조회한다.
+    graph_type은 model_type="LightGCN"일 때만 의미를 가진다("bipartite" | "tripartite").
+    반환: (df, status, message) — status가 "not_implemented"면 df는 빈 DataFrame(컬럼은 유지).
+    연결 실패 시 api_client.BackendUnavailableError가 그대로 전파된다.
+    """
+    data = api_client.get_main_recommendations(user_id, model_type, twiddler, top_n, graph_type)
+    df = pd.DataFrame(data["items"], columns=_MAIN_REC_COLUMNS)
+    return df, data["status"], data.get("message")
+
+
+@st.cache_data(ttl=30)
+def get_detail_recommendations(
+    item_id: int,
+    top_n: int = 8,
+    user_id: int | None = None,
+    twiddler: str = "before",
+) -> tuple[pd.DataFrame, str, str | None]:
+    """
+    특정 상품의 보완재(함께 구매하면 좋은 상품) 추천을 backend API에서 조회한다.
+    user_id가 주어지면 Twiddler(페르소나 재랭킹)를 적용할 수 있다(twiddler="before"|"after").
+    반환: (df, status, message) — status가 "not_implemented"면 df는 빈 DataFrame(컬럼은 유지).
+    """
+    data = api_client.get_detail_recommendations(item_id, top_n, user_id, twiddler)
+    df = pd.DataFrame(data["items"], columns=_DETAIL_REC_COLUMNS)
+    return df, data["status"], data.get("message")
