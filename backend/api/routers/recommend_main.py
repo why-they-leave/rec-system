@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Query
 
 from backend.api import schemas
-from backend.api.services import als_service, lightgcn_service, twiddler_service
-from src.modeling.twiddler.rerank import POOL_MULTIPLIER
+from backend.api.core import get_main_recommendation_items
 
 router = APIRouter()
 
@@ -19,19 +18,13 @@ def recommend_main(
     model_type="LightGCN"일 때만 graph_type이 의미를 가진다:
     "bipartite"(유저-아이템, 페르소나 미포함) 또는 "tripartite"(유저-아이템-페르소나).
     응답의 model_type은 LightGCN인 경우 "LightGCN-<graph_type>"으로 반환해 어떤 변형인지 구분한다.
+
+    실제 오케스트레이션 로직은 backend/api/core.py에 있다 — app/utils/data_loader.py가
+    Streamlit 프로세스 안에서 이 HTTP 계층을 거치지 않고 그 함수를 직접 호출한다.
     """
-    if model_type == "ALS":
-        fetch_n = top_n * POOL_MULTIPLIER if twiddler == "after" else top_n
-        items, status, message = als_service.get_recommendations(user_id, fetch_n)
-        if status == "ok":
-            items, status, message = twiddler_service.apply_twiddler(
-                items, twiddler, user_id, id_key="item_id", context="main", top_k=top_n
-            )
-        response_model_type = model_type
-    else:
-        items, status, message = lightgcn_service.get_recommendations(user_id, top_n, graph_type)
-        twiddler = "before"
-        response_model_type = f"LightGCN-{graph_type}"
+    items, status, message, response_model_type, response_twiddler = get_main_recommendation_items(
+        user_id, model_type, graph_type, twiddler, top_n
+    )
 
     return schemas.RecommendMainResponse(
         status=status,
@@ -43,7 +36,7 @@ def recommend_main(
                 score=item["score"],
                 rank=item["rank"],
                 model_type=response_model_type,
-                twiddler=twiddler,
+                twiddler=response_twiddler,
                 user_type=item["user_type"],
             )
             for item in items

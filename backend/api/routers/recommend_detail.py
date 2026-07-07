@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Query
 
 from backend.api import schemas
-from backend.api.services import complementary_service, twiddler_service
-from src.modeling.twiddler.rerank import POOL_MULTIPLIER
+from backend.api.core import get_detail_recommendation_items
 
 router = APIRouter()
 
@@ -14,15 +13,13 @@ def recommend_detail(
     twiddler: str = Query("before", pattern="^(before|after)$"),
     top_n: int = Query(8, ge=1, le=50),
 ) -> schemas.RecommendDetailResponse:
-    apply_after = twiddler == "after" and user_id is not None
-    fetch_n = top_n * POOL_MULTIPLIER if apply_after else top_n
-    items, status, message = complementary_service.get_recommendations(item_id, fetch_n)
-    if status == "ok" and user_id is not None:
-        items, status, message = twiddler_service.apply_twiddler(
-            items, twiddler, user_id, id_key="rec_item_id", context="detail", top_k=top_n
-        )
-    else:
-        twiddler = "before"
+    """
+    실제 오케스트레이션 로직은 backend/api/core.py에 있다 — app/utils/data_loader.py가
+    Streamlit 프로세스 안에서 이 HTTP 계층을 거치지 않고 그 함수를 직접 호출한다.
+    """
+    items, status, message, response_twiddler = get_detail_recommendation_items(
+        item_id, top_n, user_id, twiddler
+    )
 
     return schemas.RecommendDetailResponse(
         status=status,
@@ -33,7 +30,7 @@ def recommend_detail(
                 rec_item_id=item["rec_item_id"],
                 score=item["score"],
                 rank=item["rank"],
-                twiddler=twiddler,
+                twiddler=response_twiddler,
             )
             for item in items
         ],

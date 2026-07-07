@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 
@@ -6,12 +7,30 @@ import streamlit as st
 st.set_page_config(page_title="추천 시스템 데모", page_icon="🛍️", layout="wide")
 
 _APP_DIR = Path(__file__).parent
+_ROOT_DIR = _APP_DIR.parent
 if str(_APP_DIR) not in sys.path:
     sys.path.insert(0, str(_APP_DIR))
+if str(_ROOT_DIR) not in sys.path:
+    # data_loader.py가 backend.api.core를 직접 import하므로(HTTP 대신 in-process 호출),
+    # 리포 루트도 sys.path에 있어야 backend/src 패키지를 찾을 수 있다.
+    sys.path.insert(0, str(_ROOT_DIR))
+
+from utils.data_bootstrap import GDRIVE_FILE_ID_ENV, ensure_data_downloaded
+
+# Streamlit Community Cloud 콜드스타트 대응: 필요한 데이터 파일이 없으면 GDrive에서 자동으로 받는다.
+# 파일 ID는 로컬 개발 시 환경변수로, Cloud 배포 시 st.secrets로 넘긴다(둘 다 없으면 조용히 건너뛰고
+# 아래 각 로더의 FileNotFoundError 처리로 자연스럽게 안내한다).
+_data_file_id = os.environ.get(GDRIVE_FILE_ID_ENV)
+if not _data_file_id:
+    try:
+        _data_file_id = st.secrets.get(GDRIVE_FILE_ID_ENV)
+    except Exception:
+        _data_file_id = None
+if _data_file_id:
+    ensure_data_downloaded(_data_file_id)
 
 import pandas as pd
 from utils.style_loader import load_css
-from utils.api_client import BackendUnavailableError
 from utils.data_loader import (
     load_demo_users,
     load_products,
@@ -148,7 +167,7 @@ def _render_main_recommend(user_id: int) -> None:
     try:
         products_df = load_products()
         als_before_df, before_status, before_message = get_main_recommendations(user_id, "ALS", "before")
-    except (FileNotFoundError, BackendUnavailableError) as e:
+    except FileNotFoundError as e:
         st.error(f"데이터를 불러올 수 없습니다: `{e}`")
         return
 
@@ -183,7 +202,7 @@ def _render_main_recommend(user_id: int) -> None:
         gcn_bi_recs, gcn_bi_status, gcn_bi_message = get_main_recommendations(
             user_id, "LightGCN", graph_type="bipartite"
         )
-    except BackendUnavailableError as e:
+    except FileNotFoundError as e:
         st.error(f"데이터를 불러올 수 없습니다: `{e}`")
         return
 
@@ -303,7 +322,7 @@ def _render_detail_recommend(user_id: int) -> None:
         cf_before_df, before_status, before_message = get_detail_recommendations(
             item_id, top_n=8, user_id=user_id, twiddler="before"
         )
-    except BackendUnavailableError as e:
+    except FileNotFoundError as e:
         st.error(f"데이터를 불러올 수 없습니다: `{e}`")
         return
 
@@ -323,7 +342,7 @@ def _render_detail_recommend(user_id: int) -> None:
         cf_after_df, after_status, after_message = get_detail_recommendations(
             item_id, top_n=8, user_id=user_id, twiddler="after"
         )
-    except BackendUnavailableError as e:
+    except FileNotFoundError as e:
         st.error(f"데이터를 불러올 수 없습니다: `{e}`")
         return
 

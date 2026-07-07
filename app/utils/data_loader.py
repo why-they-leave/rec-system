@@ -4,11 +4,13 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from . import api_client
+from backend.api.core import get_detail_recommendation_items, get_main_recommendation_items
 
 DATA_SOURCE = "sqlite"  # "csv" 또는 "sqlite" — 카탈로그성 데이터(상품/유저)에만 적용.
-                        # 추천 데이터는 더 이상 여기서 읽지 않고 backend API를 호출한다(api_client 참고).
                         # recommend.db는 scripts/generate_demo_data.py가 생성한다.
+                        # 추천 데이터는 backend.api.core를 Streamlit 프로세스 안에서 직접 호출한다
+                        # (HTTP 왕복 없음 — Streamlit Community Cloud처럼 프로세스를 하나만
+                        # 띄울 수 있는 환경에서도 동작하게 하기 위함).
 DATA_DIR = Path("data/dashboard")
 SQLITE_PATH = DATA_DIR / "recommend.db"
 
@@ -58,14 +60,27 @@ def get_main_recommendations(
     graph_type: str = "tripartite",
 ) -> tuple[pd.DataFrame, str, str | None]:
     """
-    특정 유저/모델/twiddler 조합의 추천을 backend API에서 조회한다.
+    특정 유저/모델/twiddler 조합의 추천을 backend.api.core에서 직접 조회한다(HTTP 없음).
     graph_type은 model_type="LightGCN"일 때만 의미를 가진다("bipartite" | "tripartite").
     반환: (df, status, message) — status가 "not_implemented"면 df는 빈 DataFrame(컬럼은 유지).
-    연결 실패 시 api_client.BackendUnavailableError가 그대로 전파된다.
     """
-    data = api_client.get_main_recommendations(user_id, model_type, twiddler, top_n, graph_type)
-    df = pd.DataFrame(data["items"], columns=_MAIN_REC_COLUMNS)
-    return df, data["status"], data.get("message")
+    items, status, message, response_model_type, response_twiddler = get_main_recommendation_items(
+        user_id, model_type, graph_type, twiddler, top_n
+    )
+    rows = [
+        {
+            "user_id": user_id,
+            "item_id": item["item_id"],
+            "score": item["score"],
+            "rank": item["rank"],
+            "model_type": response_model_type,
+            "twiddler": response_twiddler,
+            "user_type": item["user_type"],
+        }
+        for item in items
+    ]
+    df = pd.DataFrame(rows, columns=_MAIN_REC_COLUMNS)
+    return df, status, message
 
 
 @st.cache_data(ttl=30)
@@ -76,10 +91,22 @@ def get_detail_recommendations(
     twiddler: str = "before",
 ) -> tuple[pd.DataFrame, str, str | None]:
     """
-    특정 상품의 보완재(함께 구매하면 좋은 상품) 추천을 backend API에서 조회한다.
+    특정 상품의 보완재(함께 구매하면 좋은 상품) 추천을 backend.api.core에서 직접 조회한다(HTTP 없음).
     user_id가 주어지면 Twiddler(페르소나 재랭킹)를 적용할 수 있다(twiddler="before"|"after").
     반환: (df, status, message) — status가 "not_implemented"면 df는 빈 DataFrame(컬럼은 유지).
     """
-    data = api_client.get_detail_recommendations(item_id, top_n, user_id, twiddler)
-    df = pd.DataFrame(data["items"], columns=_DETAIL_REC_COLUMNS)
-    return df, data["status"], data.get("message")
+    items, status, message, response_twiddler = get_detail_recommendation_items(
+        item_id, top_n, user_id, twiddler
+    )
+    rows = [
+        {
+            "item_id": item_id,
+            "rec_item_id": item["rec_item_id"],
+            "score": item["score"],
+            "rank": item["rank"],
+            "twiddler": response_twiddler,
+        }
+        for item in items
+    ]
+    df = pd.DataFrame(rows, columns=_DETAIL_REC_COLUMNS)
+    return df, status, message

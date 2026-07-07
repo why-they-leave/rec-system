@@ -298,3 +298,31 @@ Phase 2에서 `rec_type="content"`(대체재)를 "알고리즘 없음 → not_im
 - `app/main.py`: 처음엔 LightGCN 컬럼 안에 "🕸️ 삼분그래프" / "🔗 이분그래프" 두 섹션을 위아래로 쌓았으나, 사용자 요청으로 ALS의 Twiddler Before/After와 동일한 `st.radio` 토글 패턴으로 변경(`gcn_graph_type` 세션 상태, 기본값 `tripartite`). ALS 컬럼·Before/After 토글은 손대지 않음(요청 범위 그대로 유지). Jaccard/공통 추천 지표는 토글 상태와 무관하게 삼분그래프(페르소나 포함, 주 비교 대상) 기준으로 고정 계산.
 - 검증: 두 `graph_type` 쿼리 각각 다른 안내 메시지로 응답하는지 curl로 확인, ALS 엔드포인트·Before/After 토글이 그대로 동작하는지 확인, `streamlit.testing.v1.AppTest`로 두 섹션 헤딩("삼분그래프"/"이분그래프")과 각각의 안내 문구가 정상 렌더링되는지 확인.
 - **후속 작업(실제 구현 시)**: `src/modeling/lightgcn/model.py`의 `train()`/`recommend()`를 `graph_type`별로 채우고, `lightgcn_service.py`가 `als_service.py`와 동일한 패턴(아티팩트 로드 + 조회)으로 두 아티팩트 경로를 나눠 로드하도록 확장.
+
+## 아키텍처 전환 — HTTP(FastAPI) 호출 → Streamlit 프로세스 내 직접 호출 (2026-07-08)
+
+사용자가 "main으로 merge 후 Streamlit Community Cloud로 배포"를 요청 — Streamlit Community Cloud는 `streamlit run` 프로세스 **하나만** 띄우고 별도 포트로 FastAPI 같은 두 번째 프로세스를 함께 실행해주지 않는다. 지금까지는 `app/`이 `uvicorn backend.main:app`을 별도로 띄워야만 동작하는 2-프로세스 구조였어서, 이 상태로는 Cloud에 배포해도 백엔드가 없어 전부 연결 실패가 난다.
+
+**결정(사용자 확인)**: FastAPI를 별도 서비스로 호스팅하는 대신(Render/Railway 등 — 호스팅 계정이 하나 더 필요하고 무료 티어 콜드 스타트 문제도 생김), **Streamlit이 백엔드 로직을 같은 프로세스 안에서 직접 함수 호출**하도록 전환. FastAPI 서버 자체는 로컬 개발·외부 클라이언트용으로 코드에 남겨두되, Streamlit 배포 경로에서는 안 쓴다.
+
+### 리팩터링 내용
+
+- **`backend/api/core.py`(신규)**: 기존에 `recommend_main.py`/`recommend_detail.py` 라우터 함수 안에 있던 오케스트레이션 로직(ALS/LightGCN 분기, Twiddler 적용, POOL_MULTIPLIER 후보 풀 확장 등)을 FastAPI 타입(Query, 응답 스키마)에 의존하지 않는 순수 함수 `get_main_recommendation_items()`/`get_detail_recommendation_items()`로 추출. 라우터와 Streamlit 양쪽이 이 함수 하나를 공유해, 로직이 두 곳에 중복되지 않는다.
+- **`backend/api/routers/recommend_main.py`/`recommend_detail.py`**: `core.py`를 호출해 Pydantic 스키마로 감싸기만 하는 얇은 래퍼로 축소. 동작은 기존과 동일(curl로 재검증 완료).
+- **`app/utils/data_loader.py`**: `api_client`(HTTP GET) 대신 `backend.api.core`의 함수를 **직접 import해서 호출**하도록 변경. 반환값을 기존과 동일한 DataFrame 스키마(`_MAIN_REC_COLUMNS`/`_DETAIL_REC_COLUMNS`)로 조립해, `app/main.py` 쪽 호출부는 전혀 안 바꿔도 됨.
+- **`app/utils/api_client.py` 삭제** — 더 이상 어디서도 참조되지 않음(grep으로 확인 후 삭제).
+- **`app/main.py`**: 리포 루트를 `sys.path`에 추가(`backend`/`src` 패키지를 Streamlit 프로세스에서 import하기 위해 필요 — 기존엔 `app/`만 추가돼 있었음). `BackendUnavailableError`(HTTP 연결 실패) 처리를 전부 제거하고 `FileNotFoundError`만 남김(이제 실패 모드가 "네트워크 연결 안 됨"이 아니라 "로컬 데이터 파일이 없음"이기 때문).
+- **검증**: 별도 uvicorn 서버를 전부 종료한 상태(포트 8000 완전히 닫힘, curl로 확인)에서 `streamlit.testing.v1.AppTest`로 사이드바·메인 추천(ALS Before/After, LightGCN 삼분/이분 토글)·상세(보완재) 화면까지 예외 없이 동작 확인. 이후 `uvicorn backend.main:app`을 별도로 켜서 라우터 경로(curl)도 여전히 정상 응답하는 것까지 재확인 — 두 호출 경로 모두 살아있음.
+
+### Streamlit Community Cloud 콜드스타트 데이터 자동 다운로드
+
+Cloud는 GitHub 리포를 clone만 하므로 gitignore된 데이터 파일(`recommend.db`, `als_model.pkl` 등)이 없다. 기존 `scripts/download_data.py`(로컬 CLI 전용)의 GDrive 다운로드 로직을 재사용 가능하게 분리:
+
+- **`app/utils/data_bootstrap.py`(신규)**: `ensure_data_downloaded(file_id)`/`is_data_ready()` — GDrive 다운로드의 실제 로직. `scripts/download_data.py`(CLI)와 `app/main.py`(Streamlit 콜드스타트) 양쪽에서 재사용.
+- **`scripts/download_data.py`**: 위 모듈을 호출하는 얇은 CLI 래퍼로 축소.
+- **`app/main.py`**: 앱 시작 시 `REC_SYSTEM_DATA_FILE_ID`를 환경변수 → 안 되면 `st.secrets`(Cloud의 Secrets 설정) 순으로 찾아, 필요한 파일이 없을 때만 자동 다운로드. 파일이 이미 있으면(로컬 개발 환경 등) 아무 것도 하지 않고 그냥 넘어간다. 파일 ID를 못 찾아도 앱이 죽지 않고, 이후 각 로더의 `FileNotFoundError` 처리로 자연스럽게 안내 문구가 뜬다.
+- **`.gitignore`에 `.streamlit/secrets.toml` 추가**(기존엔 빠져 있었음 — 로컬에서 이 파일을 만들 경우를 대비한 안전장치), **`.streamlit/secrets.toml.example`(신규, 커밋됨)**로 Cloud Secrets 설정에 붙여넣을 템플릿 제공.
+
+### 알려진 리스크(배포 시 확인 필요)
+
+- `implicit`(ALS 모델 언피클에 필요, C 확장 패키지)이 이제 Streamlit 프로세스 자체에도 설치돼 있어야 한다 — Streamlit Community Cloud의 빌드 환경에서 정상적으로 빌드되는지는 실제 배포 시 확인 필요(로컬 `.venv`에서는 이미 정상 동작 확인됨).
