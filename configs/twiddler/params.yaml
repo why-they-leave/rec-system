@@ -1,0 +1,23 @@
+# configs/twiddler/params.yaml
+# src/modeling/twiddler/rerank.py 하이퍼파라미터 설정.
+# Rule 1(페르소나 카테고리 가중치) / Rule 2(노출 이력 패널티) / Rule 3(저노출 상품 최소 노출) 관련 값.
+# backend/api/services/persona_service.py, exposure_service.py, complementary_service.py,
+# backend/api/routers/recommend_main.py, recommend_detail.py가 이 값을
+# src.modeling.twiddler.rerank의 동일 이름 상수로 import해서 그대로 쓴다.
+
+num_categories: 7          # data/dashboard/products.csv 기준 카테고리 종류 수 (균등분포 baseline用)
+
+# Rule 1 — 페르소나 카테고리 가중치
+base_alpha: 1.5            # 가중치 강도 배율(persona_service.get_segment_alpha가 세그먼트의
+                            # dominant_purchase_category_ratio 평균에 곱해 최종 alpha를 만든다)
+multiplier_floor: 0.3      # 가중치 배율 하한(점수가 0에 가까워지는 것 방지)
+
+# Rule 2 — 노출 이력 패널티
+exposure_decay: 0.7        # 노출 1회당 감쇠율(0~1, 낮을수록 재노출 시 점수가 더 빨리 깎임)
+
+# Rule 3 — 저노출(신상품 근사) 상품 최소 노출 보장
+low_exposure_percentile: 0.10   # 저노출 판정 기준 분위수(rec_item_id 등장 빈도 하위 10%)
+reserved_slots: 1                # top_k 안에 강제로 끼워 넣을 저노출 상품 슬롯 수
+
+# twiddler=after 요청 시 top_n의 몇 배를 후보 풀로 가져올지(Rule 2/3이 재배치할 여지를 줌)
+pool_multiplier: 3
