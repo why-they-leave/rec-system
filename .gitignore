@@ -28,10 +28,14 @@ data/raw/
 data/interim/
 data/processed/
 data/dashboard/*
+data/outputs/ALS/*
+data/outputs/complementary/*
 !data/raw/.gitkeep
 !data/interim/.gitkeep
 !data/processed/.gitkeep
 !data/dashboard/.gitkeep
+!data/outputs/ALS/.gitkeep
+!data/outputs/complementary/.gitkeep
 
 # 모델 아티팩트
 models/
