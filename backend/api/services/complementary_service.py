@@ -12,8 +12,6 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.modeling.twiddler.rerank import LOW_EXPOSURE_PERCENTILE
-
 _TABLE_PATH = Path(__file__).resolve().parents[3] / "data" / "outputs" / "complementary" / "detail_cf.csv"
 
 _table: pd.DataFrame | None = None
@@ -26,17 +24,6 @@ def _load_table() -> pd.DataFrame | None:
         _table = pd.read_csv(_TABLE_PATH) if _TABLE_PATH.exists() else None
         _loaded = True
     return _table
-
-
-def get_low_exposure_items(threshold_percentile: float = LOW_EXPOSURE_PERCENTILE) -> set[int]:
-    """rec_item_id 등장 빈도 하위 분위수를 저노출(신상품 근사) 상품으로 반환한다."""
-    table = _load_table()
-    if table is None:
-        return set()
-
-    counts = table["rec_item_id"].value_counts()
-    threshold = counts.quantile(threshold_percentile)
-    return set(counts[counts <= threshold].index)
 
 
 def get_recommendations(item_id: int, top_n: int = 8) -> tuple[list[dict], str, str | None]:

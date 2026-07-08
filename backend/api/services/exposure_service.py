@@ -8,8 +8,6 @@ get/record 두 함수 뒤로 상태를 캡슐화해 둔다.
 
 from __future__ import annotations
 
-from src.modeling.twiddler.rerank import EXPOSURE_DECAY
-
 _exposure_store: dict[tuple[int, str], dict[int, float]] = {}
 
 
@@ -17,13 +15,14 @@ def get_recent_exposure(user_id: int, context: str) -> dict[int, float]:
     return dict(_exposure_store.get((user_id, context), {}))
 
 
-def record_exposure(user_id: int, context: str, shown_item_ids: list[int]) -> None:
+def record_exposure(user_id: int, context: str, shown_item_ids: list[int], decay: float) -> None:
+    """decay는 유저 개인화 값(persona_service.get_user_decay)을 그대로 받는다."""
     key = (user_id, context)
     counts = _exposure_store.setdefault(key, {})
 
     # 기존 노출 카운트는 한 번 감쇠시켜 오래된 노출이 자연히 약해지게 함
     for item_id in list(counts.keys()):
-        decayed = counts[item_id] * EXPOSURE_DECAY
+        decayed = counts[item_id] * decay
         if decayed < 0.01:
             del counts[item_id]
         else:

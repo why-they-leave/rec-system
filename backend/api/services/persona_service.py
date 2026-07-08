@@ -1,22 +1,45 @@
 """
-페르소나(세그먼트) 조회 서비스.
+페르소나(유저 단위 행동 성향) 조회 서비스.
 
 data/processed/customer_segments_labeled_train_only.csv(customer_id -> segment_id/segment_name,
 그리고 top_view_category/top_purchase_category/view_purchase_category_match/
-dominant_purchase_category_ratio 등 구조화 컬럼)를 기동 시 1회 로드해 메모리에 캐시한다.
+dominant_purchase_category_ratio/category_diversity_purchase/dominant_view_category_ratio 등
+유저 단위 구조화 컬럼)를 기동 시 1회 로드해 메모리에 캐시한다.
 
-- get_persona(user_id): user_id -> persona_label(=segment_name) 조회
-- get_segment_affinity(persona_label): 해당 세그먼트의 카테고리별 선호도 편차(affinity) 반환
-- get_segment_alpha(persona_label): Rule 1의 가중치 강도(alpha) 반환
+Rule 1/2는 세그먼트 평균이 아니라 유저 단위 연속값을 쓴다(세그먼트 평균으로 뭉개면 같은
+세그먼트 유저가 전부 동일한 배율/감쇠를 받아 "유동적인 소비 선호도"를 포착하지 못하고,
+개인화 alpha에 상한이 없으면 로열티가 매우 높은 유저가 필터버블에 갇힌다 — 둘 다 검증됨,
+notebooks/20260708_ML_twiddler_final_design.ipynb 참고):
+
+- get_persona(user_id): user_id -> persona_label(=segment_name) 조회. 페르소나 데이터 존재 여부
+  게이트로만 쓰인다(twiddler_service.apply_twiddler의 "not_implemented" 분기).
+- get_user_affinity(user_id): 유저 본인의 top_view/purchase_category 기반 카테고리별 선호도 편차
+- get_user_alpha(user_id): 유저 개인의 category_loyalty x (1-exploration_tendency)로 계산한
+  Rule 1 가중치 강도 (배율 자체의 상한/하한은 src/modeling/twiddler/rerank.py가 적용)
+- get_user_decay(user_id): exploration_tendency의 percentile rank 기반 Rule 2 노출 감쇠율
+  (population 평균이 EXPOSURE_DECAY 근방에 고정되도록 원값이 아니라 rank를 사용)
+
+exploration_tendency(탐색 성향, 0~1): 구매 이력이 있는 유저는 category_diversity_purchase(구매
+카테고리 다양성)와 (1-view_purchase_category_match)(조회-구매 카테고리 불일치)를 절반씩 결합한다.
+구매 이력이 없는 유저는 dominant_view_category_ratio의 역수로 근사한다(구매 데이터가 없어
+데이터 없이 임의로 가정하지 않기 위한 분기).
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
-from src.modeling.twiddler.rerank import BASE_ALPHA, NUM_CATEGORIES
+from backend.api.services import catalog_service
+from src.modeling.twiddler.rerank import (
+    BASE_ALPHA,
+    EXPLORATION_DECAY_MAX,
+    EXPLORATION_DECAY_MIN,
+    EXPOSURE_DECAY,
+    NUM_CATEGORIES,
+)
 
 _TABLE_PATH = (
     Path(__file__).resolve().parents[3]
@@ -25,69 +48,69 @@ _TABLE_PATH = (
     / "customer_segments_labeled_train_only.csv"
 )
 
-_df: pd.DataFrame | None = None
+_UNIFORM_BASELINE = 1.0 / NUM_CATEGORIES
+
+_feat_df: pd.DataFrame | None = None
 _persona_by_user: dict[int, str] | None = None
-_affinity_by_persona: dict[str, dict[str, float]] | None = None
-_alpha_by_persona: dict[str, float] | None = None
+_all_categories: list[str] | None = None
 
 
-def _load() -> pd.DataFrame:
-    global _df
-    if _df is None:
-        _df = pd.read_csv(_TABLE_PATH)
-    return _df
-
-
-def _build_lookups() -> None:
-    global _persona_by_user, _affinity_by_persona, _alpha_by_persona
-    if _persona_by_user is not None:
+def _build_features() -> None:
+    global _feat_df, _persona_by_user, _all_categories
+    if _feat_df is not None:
         return
 
-    df = _load()
+    df = pd.read_csv(_TABLE_PATH)
     _persona_by_user = dict(zip(df["customer_id"], df["segment_name"]))
+    _all_categories = sorted(set(catalog_service.get_category_map().values()) - {None})
 
-    uniform_baseline = 1.0 / NUM_CATEGORIES
-    _affinity_by_persona = {}
-    _alpha_by_persona = {}
+    diversity_norm = (df["category_diversity_purchase"] - 1) / (NUM_CATEGORIES - 1)
+    purchase_based = 0.5 * diversity_norm + 0.5 * (1 - df["view_purchase_category_match"])
+    view_based = 1 - df["dominant_view_category_ratio"]
 
-    for persona_label, seg_df in df.groupby("segment_name"):
-        match_rate = seg_df["view_purchase_category_match"].mean()
-        match_rate = match_rate if pd.notna(match_rate) else 0.0
-        w_purchase = 0.5 + 0.5 * match_rate
-        w_view = 1 - w_purchase
+    has_purchase = df["dominant_purchase_category_ratio"].notna()
+    df["exploration_tendency"] = np.where(has_purchase, purchase_based, view_based)
+    df["exploration_tendency"] = df["exploration_tendency"].fillna(0.5).clip(0, 1)
+    df["exploration_pct_rank"] = df["exploration_tendency"].rank(pct=True)
 
-        purchase_share = seg_df["top_purchase_category"].value_counts(normalize=True)
-        view_share = seg_df["top_view_category"].value_counts(normalize=True)
-        categories = set(purchase_share.index) | set(view_share.index)
+    df["category_loyalty"] = df["dominant_purchase_category_ratio"].fillna(0.0)
+    df["w_purchase"] = np.where(df["view_purchase_category_match"] == 1, 1.0, 0.5)
+    df["w_view"] = 1 - df["w_purchase"]
 
-        affinity = {
-            category: (
-                w_purchase * purchase_share.get(category, 0.0)
-                + w_view * view_share.get(category, 0.0)
-                - uniform_baseline
-            )
-            for category in categories
-        }
-        _affinity_by_persona[persona_label] = affinity
-
-        # 비구매(browsing-only) 세그먼트는 dominant_purchase_category_ratio가 전부
-        # 결측일 수 있음(구매 자체가 없으므로) -> 이 경우 alpha=0으로 Rule 1을 사실상 비활성화.
-        dominant_ratio_mean = seg_df["dominant_purchase_category_ratio"].mean()
-        _alpha_by_persona[persona_label] = (
-            BASE_ALPHA * dominant_ratio_mean if pd.notna(dominant_ratio_mean) else 0.0
-        )
+    _feat_df = df.set_index("customer_id")
 
 
 def get_persona(user_id: int) -> str | None:
-    _build_lookups()
+    _build_features()
     return _persona_by_user.get(user_id)
 
 
-def get_segment_affinity(persona_label: str) -> dict[str, float]:
-    _build_lookups()
-    return _affinity_by_persona.get(persona_label, {})
+def get_user_affinity(user_id: int) -> dict[str, float]:
+    _build_features()
+    if user_id not in _feat_df.index:
+        return {}
+    row = _feat_df.loc[user_id]
+    return {
+        category: (
+            (row["w_purchase"] if category == row["top_purchase_category"] else 0.0)
+            + (row["w_view"] if category == row["top_view_category"] else 0.0)
+            - _UNIFORM_BASELINE
+        )
+        for category in _all_categories
+    }
 
 
-def get_segment_alpha(persona_label: str) -> float:
-    _build_lookups()
-    return _alpha_by_persona.get(persona_label, 0.0)
+def get_user_alpha(user_id: int) -> float:
+    _build_features()
+    if user_id not in _feat_df.index:
+        return 0.0
+    row = _feat_df.loc[user_id]
+    return BASE_ALPHA * row["category_loyalty"] * (1 - row["exploration_tendency"])
+
+
+def get_user_decay(user_id: int) -> float:
+    _build_features()
+    if user_id not in _feat_df.index:
+        return EXPOSURE_DECAY
+    row = _feat_df.loc[user_id]
+    return EXPLORATION_DECAY_MAX - (EXPLORATION_DECAY_MAX - EXPLORATION_DECAY_MIN) * row["exploration_pct_rank"]

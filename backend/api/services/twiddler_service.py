@@ -9,8 +9,8 @@ ALS 메인 추천(id_key="item_id", context="main")과 보완재 상세 추천
 
 from __future__ import annotations
 
+from backend.api.services import catalog_service, exposure_service, persona_service
 from src.modeling.twiddler import rerank as rerank_mod
-from backend.api.services import catalog_service, complementary_service, exposure_service, persona_service
 
 
 def apply_twiddler(
@@ -31,12 +31,10 @@ def apply_twiddler(
         return items[:top_k], "not_implemented", "이 유저의 페르소나 정보를 찾을 수 없어 Before 결과로 대체합니다."
 
     category_map = catalog_service.get_category_map()
-    affinity = persona_service.get_segment_affinity(persona_label)
-    alpha = persona_service.get_segment_alpha(persona_label)
+    affinity = persona_service.get_user_affinity(user_id)
+    alpha = persona_service.get_user_alpha(user_id)
+    decay = persona_service.get_user_decay(user_id)
     exposure_counts = exposure_service.get_recent_exposure(user_id, context)
-    low_exposure_ids = (
-        complementary_service.get_low_exposure_items() if context == "detail" else None
-    )
 
     reranked = rerank_mod.rerank(
         items,
@@ -45,8 +43,8 @@ def apply_twiddler(
         affinity=affinity,
         alpha=alpha,
         exposure_counts=exposure_counts,
-        low_exposure_ids=low_exposure_ids,
+        decay=decay,
         top_k=top_k,
     )
-    exposure_service.record_exposure(user_id, context, [item[id_key] for item in reranked])
+    exposure_service.record_exposure(user_id, context, [item[id_key] for item in reranked], decay=decay)
     return reranked, "ok", None
