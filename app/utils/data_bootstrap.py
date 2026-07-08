@@ -15,10 +15,23 @@ GDrive에 업로드된 데이터 번들을 내려받아 리포 루트에 압축 
     data/processed/customer_segments_labeled_train_only.csv       (persona_service)
     data/outputs/complementary/detail_cf.csv                      (complementary_service)
     models/ALS/als_model.pkl                                      (als_service)
+    data/processed/tri_graph_uidx2tidx_train.json                 (graph_service — 유저→상품 서브그래프)
+    data/processed/tri_graph_tidx2pidx.json                       (graph_service — 상품→세그먼트 lift)
+    data/processed/tri_graph_uidx2pidx.json                       (graph_service — 유저 본인 세그먼트)
+    data/processed/uidx_user_id_mapping.csv                       (graph_service — uidx↔user_id 매핑)
+    data/processed/tidx_product_id_mapping.csv                    (graph_service — tidx↔product_id 매핑)
+    data/processed/df_integrated_logs.csv                         (graph_service — cutoff 이전 구매 판정)
+    data/outputs/eval/twiddler_accuracy.csv                       (load_twiddler_eval — 오프라인 성능 지표)
+    data/outputs/eval/twiddler_diversity.csv                      (load_twiddler_eval — 오프라인 성능 지표)
 
-재학습/재현(원본 로그 → 파이프라인 재실행)까지 필요하면 data/raw/, data/interim/als_events.csv,
-data/processed/df_integrated_logs.csv도 별도로 받아야 한다 — 이 모듈의 범위 밖이다
-(reports/BACKEND_INTEGRATION_PLAN.md 참고).
+data/processed/df_integrated_logs.csv(39MB)는 원본 로그 파생 파일치고 크지만, 다른 재학습
+파이프라인에서도 재사용되는 원본 그대로를 유지하기 위해 컬럼을 축소하지 않고 그대로 포함한다.
+
+data/processed/segment_personas_train_only.json은 graph_service.py가 있으면만 읽어 세그먼트
+노드 라벨을 채우는 선택적 파일이라(없어도 그래프 자체는 동작) 이 필수 목록에는 넣지 않는다.
+
+재학습/재현(원본 로그 → 파이프라인 재실행)까지 필요하면 data/raw/, data/interim/als_events.csv도
+별도로 받아야 한다 — 이 모듈의 범위 밖이다(reports/BACKEND_INTEGRATION_PLAN.md 참고).
 """
 
 from __future__ import annotations
@@ -40,6 +53,14 @@ REQUIRED_FILES = [
     "data/processed/customer_segments_labeled_train_only.csv",
     "data/outputs/complementary/detail_cf.csv",
     "models/ALS/als_model.pkl",
+    "data/processed/tri_graph_uidx2tidx_train.json",
+    "data/processed/tri_graph_tidx2pidx.json",
+    "data/processed/tri_graph_uidx2pidx.json",
+    "data/processed/uidx_user_id_mapping.csv",
+    "data/processed/tidx_product_id_mapping.csv",
+    "data/processed/df_integrated_logs.csv",
+    "data/outputs/eval/twiddler_accuracy.csv",
+    "data/outputs/eval/twiddler_diversity.csv",
 ]
 
 
