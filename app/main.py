@@ -30,29 +30,30 @@ if _data_file_id:
     ensure_data_downloaded(_data_file_id)
 
 import pandas as pd
-from utils.style_loader import load_css
+from components.eval_metrics_table import render_eval_metrics, render_user_twiddler_case
+from components.product_card import render_current_product_card, render_product_card
+from components.user_graph import render_user_graph
+from components.user_selector import (
+    render_persona_and_user_selector,
+    render_persona_card,
+    render_user_card,
+)
+from utils.category_emoji import CATEGORY_EMOJI
 from utils.data_loader import (
+    get_detail_recommendations,
+    get_main_recommendations,
     load_demo_users,
     load_products,
-    get_main_recommendations,
-    get_detail_recommendations,
+    reset_user_exposure,
+    simulate_next_session,
 )
 from utils.rank_delta import get_rank_delta
-from components.user_selector import render_persona_and_user_selector
-from components.product_card import render_product_card, render_current_product_card
+from utils.style_loader import load_css
+
 from src.modeling.twiddler.rerank import POOL_MULTIPLIER
 
 _STATIC_DIR = _APP_DIR / "static"
 
-CATEGORY_EMOJI: dict[str, str] = {
-    "Electronics":    "💻",
-    "Home & Kitchen": "🏠",
-    "Beauty":         "💄",
-    "Sports":         "⚽",
-    "Fashion":        "👗",
-    "Books":          "📚",
-    "Toys":           "🎮",
-}
 ALL_CATEGORIES = list(CATEGORY_EMOJI.keys())
 
 # st.pills 레이블 → 실제 카테고리명 역매핑
@@ -60,10 +61,6 @@ _PILL_TO_CAT: dict[str, str] = {
     f"{CATEGORY_EMOJI[c]} {c}": c for c in ALL_CATEGORIES
 }
 _PILL_OPTIONS = ["🏷️ 전체"] + list(_PILL_TO_CAT.keys())
-
-# ALS 컬럼 마커 — CSS ::after 가상 요소가 gap 정중앙에 구분선을 그리도록 앵커 역할
-_ALGO_LEFT_MARKER = '<div data-algo-left style="display:none"></div>'
-_ALGO_RIGHT_MARKER = '<div style="display:none;"></div>'
 
 # 카드 그리드 마커 — CSS :has() 가 이 마커를 감싼 컨테이너를 찾아 카드 높이를 통일하도록 앵커 역할
 _CARD_GRID_MARKER = '<div data-card-grid style="display:none"></div>'
@@ -77,22 +74,41 @@ _CARD_GRID_MARKER = '<div data-card-grid style="display:none"></div>'
 _MAIN_TOP_N = 10
 _DETAIL_TOP_N = 8
 
+# 새로고침 시뮬레이션 라운드 수 — evaluate_twiddler.py의 T_ROUNDS(5)와 동일한 값으로 맞춘다.
+_SIM_ROUNDS = 5
+
 
 # ── 사이드바 ───────────────────────────────────────────────────────────────────
 
 def _setup_sidebar() -> tuple[list[str], pd.DataFrame | None]:
     """사이드바 초기화. (선택된 카테고리 목록, demo_users_df) 반환.
 
-    페르소나/유저 선택은 메인 화면(render_persona_and_user_selector)에서 렌더링하고,
-    "메인으로 돌아가기" 버�른 상세 화면 본문에 이미 있으므로(_render_detail_recommend),
-    사이드바는 카테고리 필터(메인 화면 전용)만 담당한다. 상세 화면에서는 사이드바에
-    보여줄 내용이 없으므로 타이틀 아래 구분선 하나만 남기고 아무것도 추가하지 않는다
-    (예전엔 divider + 빈 공간 + divider + 버튼 구조라 사이드바가 비어 보이면서도
-    구분선이 두 번 나오는 게 어색했다).
+    페르소나/유저 선택은 각 화면 본문(render_persona_and_user_selector)에서 렌더링하고,
+    "메인으로 돌아가기" 버튼도 상세 화면 본문에 이미 있으므로(_render_rerank_detail),
+    사이드바는 검증 화면 탭(main_tab)과 카테고리 필터(연관상품 상세 화면 제외)만 담당한다.
+    상세 화면에서는 카테고리 필터를 보여줄 내용이 없으므로 탭 라디오 아래 구분선 하나만
+    남기고 아무것도 추가하지 않는다.
     """
     load_css(str(_STATIC_DIR / "style.css"))
 
     st.sidebar.title("🛍️ 추천 시스템 데모")
+    st.sidebar.markdown("---")
+
+    # ── 검증 화면 탭 (좌측 사이드바 버튼 — st.tabs는 상단 가로형이라 대신 사용) ──
+    st.sidebar.markdown("**검증 화면**")
+    current_tab = st.session_state.get("main_tab", "persona")
+    if st.sidebar.button(
+        "페르소나 기여도", width="stretch",
+        type="primary" if current_tab == "persona" else "secondary",
+    ):
+        st.session_state["main_tab"] = "persona"
+        st.rerun()
+    if st.sidebar.button(
+        "Twiddler 재랭킹", width="stretch",
+        type="primary" if current_tab == "rerank" else "secondary",
+    ):
+        st.session_state["main_tab"] = "rerank"
+        st.rerun()
     st.sidebar.markdown("---")
 
     try:
@@ -161,8 +177,19 @@ def _render_recommend_grid(
                     if plain_rank_mode:
                         render_product_card(item, rank, badge, score=score, plain_rank_badge=rank)
                     else:
-                        rank_before = rank_before_map.get(iid) if rank_before_map else None
-                        rank_delta = get_rank_delta(rank_before, rank) if rank_before is not None else None
+                        # rank_before_map이 주어졌다는 건 "비교 대상이 있다"는 뜻이므로, 그
+                        # 안에 이 상품이 없으면 "비교 안 함"이 아니라 "직전 대비 새로 진입"이다
+                        # — 구분 없이 배지를 비워두면 유지/상승/하락 어디에도 안 걸리는 상품이
+                        # 생긴다(요청으로 발견, 특히 새로고침 시뮬레이션에서 자주 발생 — 이전
+                        # 라운드 top-10 밖에 있던 상품이 새로 진입하는 게 정상 시나리오).
+                        if rank_before_map is not None:
+                            rank_before = rank_before_map.get(iid)
+                            if rank_before is not None:
+                                rank_delta = get_rank_delta(rank_before, rank)
+                            else:
+                                rank_delta = {"direction": "new", "label": "신규"}
+                        else:
+                            rank_before, rank_delta = None, None
                         render_product_card(
                             item, rank, badge, score=score, rank_delta=rank_delta, rank_before=rank_before,
                         )
@@ -171,7 +198,7 @@ def _render_recommend_grid(
                         if st.button(
                             "🔍 연관 상품 보기",
                             key=f"detail_{user_id}_{iid}_{model_key}",
-                            use_container_width=True,
+                            width="stretch",
                         ):
                             st.session_state["view"] = "detail"
                             st.session_state["selected_item_id"] = iid
@@ -186,9 +213,46 @@ def _render_twiddler_toggle(key: str, effective_phase: str, *, disabled: bool = 
     """
     is_after = effective_phase == "After"
     label = "🔄 Twiddler 적용 중.. (적용 후)" if is_after else "⏸️ Twiddler 미적용 (적용 전)"
-    if st.button(label, key=f"{key}_toggle_btn", use_container_width=True, disabled=disabled):
+    if st.button(label, key=f"{key}_toggle_btn", width="stretch", disabled=disabled):
         st.session_state[key] = "Before" if is_after else "After"
         st.rerun()
+
+
+def _render_refresh_simulation_button(user_id: int, disabled: bool) -> int:
+    """반복 새로고침(다양성 효과)을 라이브로 보여주는 시뮬레이션 버튼.
+
+    Tab1의 핵심 가치인 "반복 방문 다양성"이 지금까지는 사전계산된 population 평균 표로만
+    보였다 — 이 버튼은 선택된 유저 1명에 대해 실제로 exposure_service 노출 이력을 누적시켜가며
+    "새로고침을 반복하면 카드가 실제로 바뀐다"는 걸 라이브로 보여준다(요청 반영).
+    클릭마다 라운드가 1씩 증가하고, _SIM_ROUNDS(5)를 넘으면 라운드 0(평소 before/after 토글
+    화면)으로 돌아간다. 라운드 0→1로 새로 시작할 때만 노출 이력을 리셋해 매번 깨끗한
+    상태에서 시작한다 — 그 외에는 세션 상태의 결과를 그대로 재사용해 매 rerun마다 시뮬레이션이
+    다시 진행되지 않도록 한다(버튼을 실제로 눌렀을 때만 다음 라운드로 전진).
+
+    각 라운드 결과를 sim_history_{user_id} 리스트에 누적해 두어, 호출부가 "직전 라운드 대비
+    순위 변동(▲/▼)" 배지를 계산할 수 있게 한다(요청 반영 — 이전엔 라운드마다 순위만 보여주고
+    변동 방향은 없었다).
+
+    반환: 현재 라운드(0이면 시뮬레이션 비활성 상태).
+    """
+    round_key = f"sim_round_{user_id}"
+    history_key = f"sim_history_{user_id}"
+    current_round = st.session_state.get(round_key, 0)
+    label = (
+        f"🔁 새로고침 시뮬레이션 ({current_round}/{_SIM_ROUNDS}회차)"
+        if current_round else "🔁 새로고침 시뮬레이션 시작"
+    )
+    if st.button(label, key=f"sim_btn_{user_id}", width="stretch", disabled=disabled):
+        next_round = current_round + 1 if current_round < _SIM_ROUNDS else 0
+        st.session_state[round_key] = next_round
+        if next_round == 1:
+            reset_user_exposure(user_id, "main")
+            st.session_state[history_key] = []
+        if next_round > 0:
+            result = simulate_next_session(user_id, top_n=_MAIN_TOP_N)
+            st.session_state.setdefault(history_key, []).append(result)
+        st.rerun()
+    return current_round
 
 
 def _render_model_status_or_grid(
@@ -204,14 +268,21 @@ def _render_model_status_or_grid(
     _render_recommend_grid(items_df, **grid_kwargs)
 
 
-# ── 메인 추천 화면 ─────────────────────────────────────────────────────────────
+# ── Tab 1: Twiddler 재랭킹 — 메인 추천 화면 ────────────────────────────────────────
 
-def _render_main_recommend(selected_categories: list[str], demo_users_df: pd.DataFrame) -> None:
-    st.title("📊 메인 추천")
+def _render_rerank_main(selected_categories: list[str], demo_users_df: pd.DataFrame) -> None:
+    """Tab 1(Twiddler 재랭킹) 메인페이지 서브탭 — ALS vs ALS+Twiddler.
 
-    # ── 유저 소개 (페르소나 선택 + 유저 선택 — 둘 다 사이드바에서 이동, 나란히 배치) ──
+    reports/UI_TAB_RESTRUCTURE_PLAN.md 기준 재구성: 기존 LightGCN 비교 블록과
+    "ALS vs LightGCN 공통 추천 상품 수 / Jaccard 유사도" 지표는 서로 다른 독립변수를
+    섞는 지표라 제거했다(사용자 확인 완료) — LightGCN 비교는 _render_persona_tab으로 이관.
+    """
+    st.title("🔁 Twiddler 재랭킹 — 탐색 다양성 확인")
+
+    # ── 유저 소개 (페르소나 선택 + 유저 선택) ──────────────────────────────
     st.markdown("---")
     user_id, user_info = render_persona_and_user_selector(demo_users_df)
+    render_persona_card(user_info)
 
     try:
         products_df = load_products()
@@ -225,13 +296,6 @@ def _render_main_recommend(selected_categories: list[str], demo_users_df: pd.Dat
         st.error(f"데이터를 불러올 수 없습니다: `{e}`")
         return
 
-    st.subheader(f"User {user_id:03d}")
-    st.markdown(
-        f"**페르소나:** {user_info['persona_label']}  \n"
-        f"**유저 유형:** {user_info['user_type_label']}  \n"
-        f"**행동 로그:** {user_info['log_count']:,}건"
-    )
-
     # ── 유저 유형 판별 (Twiddler 게이팅) ────────────────────────────────────
     user_type_val = als_before_df["user_type"].iloc[0].upper() if not als_before_df.empty else "—"
     is_cold = (user_type_val == "COLD")
@@ -239,15 +303,16 @@ def _render_main_recommend(selected_categories: list[str], demo_users_df: pd.Dat
     # Cold 유저는 Twiddler 미적용 → "before"(인기도 기반)로 고정
     twiddler_phase = "Before" if is_cold else st.session_state.get("als_twiddler_phase", "After")
 
+    # 유형·로그·Twiddler 상태를 한 카드에 통합(요청 반영 — 기존엔 subheader + markdown +
+    # 별도 st.metric 2개로 흩어져 있었음).
+    render_user_card(
+        user_id, user_info["persona_label"], user_type_val, user_info["log_count"],
+        twiddler_status=twiddler_phase,
+    )
+
     try:
         als_after_df, after_status, after_message = get_main_recommendations(
             user_id, "ALS", "after", top_n=_MAIN_TOP_N
-        )
-        gcn_tri_recs, gcn_tri_status, gcn_tri_message = get_main_recommendations(
-            user_id, "LightGCN", graph_type="tripartite"
-        )
-        gcn_bi_recs, gcn_bi_status, gcn_bi_message = get_main_recommendations(
-            user_id, "LightGCN", graph_type="bipartite"
         )
     except FileNotFoundError as e:
         st.error(f"데이터를 불러올 수 없습니다: `{e}`")
@@ -262,90 +327,72 @@ def _render_main_recommend(selected_categories: list[str], demo_users_df: pd.Dat
     # 밖에서 끌어올린 상품도 정확한 "▲" 배지를 받도록 한다.
     rank_before_map = dict(zip(als_before_pool_df["item_id"].astype(int), als_before_pool_df["rank"]))
 
-    # Jaccard — 현재 선택된 ALS 결과 vs LightGCN(삼분그래프, 페르소나 포함 — 주 비교 대상)
-    common_ids = set(als_recs["item_id"]) & set(gcn_tri_recs["item_id"])
-    union_ids  = set(als_recs["item_id"]) | set(gcn_tri_recs["item_id"])
-    jaccard    = len(common_ids) / len(union_ids) if union_ids else 0.0
-
     # 카테고리 필터 적용
     als_items = (
         als_recs.merge(products_df, on="item_id", how="left")
         .pipe(lambda df: df[df["category"].isin(selected_categories)])
     )
-    gcn_tri_items = (
-        gcn_tri_recs.merge(products_df, on="item_id", how="left")
-        .pipe(lambda df: df[df["category"].isin(selected_categories)])
-    )
-    gcn_bi_items = (
-        gcn_bi_recs.merge(products_df, on="item_id", how="left")
-        .pipe(lambda df: df[df["category"].isin(selected_categories)])
-    )
 
-    # ── 핵심 지표 (대시보드 성격에 맞게 화면 상단으로 배치) ──────────────────
-    m1, m2, m3 = st.columns(3)
-    m1.metric(f"공통 추천 상품 (ALS {twiddler_phase} vs LightGCN 삼분그래프)", f"{len(common_ids)}개 / 10개")
-    m2.metric("Jaccard 유사도", f"{jaccard:.3f}")
-    m3.metric("유저 유형", user_type_val)
+    render_user_twiddler_case(user_id)
     st.divider()
 
-    # ── 2열 레이아웃: ALS | LightGCN (구분선은 CSS ::after 로 gap 정중앙에 배치) ──
-    col_als, col_gcn = st.columns(2)
+    st.markdown("### 🤖 ALS")
+    if is_cold:
+        st.caption("🧊 Cold 유저: Twiddler 미적용 — 인기도 기반 추천")
+    else:
+        st.caption("🔥 Heavy 유저: Twiddler 적용 효과 비교")
 
-    with col_als:
-        # 마커: CSS [data-testid="stColumn"]:has([data-algo-left])::after 로 구분선 생성
-        st.markdown(_ALGO_LEFT_MARKER, unsafe_allow_html=True)
-        st.markdown("### 🤖 ALS")
-
-        if is_cold:
-            st.caption("🧊 Cold 유저: Twiddler 미적용 — 인기도 기반 추천")
-        else:
-            st.caption("🔥 Heavy 유저: Twiddler 적용 효과 비교")
-
+    col_toggle, col_sim = st.columns(2)
+    with col_toggle:
         _render_twiddler_toggle("als_twiddler_phase", twiddler_phase, disabled=is_cold)
+    with col_sim:
+        sim_round = _render_refresh_simulation_button(user_id, is_cold)
 
+    # 새로고침 시뮬레이션은 Twiddler exposure decay(Rule 2)를 라운드마다 누적시키는
+    # 기능이라 "Twiddler 미적용(Before)" 상태에서는 보여줄 게 없다 — 토글로 Before를
+    # 선택하면 시뮬레이션 진행 중이어도 평소의 정적 "적용 전" 결과를 보여준다(요청 반영:
+    # 이전엔 sim_round>0이면 토글 상태를 무시하고 항상 시뮬레이션 결과만 보여줬음).
+    if sim_round > 0 and twiddler_phase != "Before":
+        sim_history = st.session_state[f"sim_history_{user_id}"]
+        sim_df, sim_status, sim_message = sim_history[sim_round - 1]
+        sim_items = (
+            sim_df.merge(products_df, on="item_id", how="left")
+            .pipe(lambda df: df[df["category"].isin(selected_categories)])
+        )
+        # 1회차는 "적용 전(before)" 전체 풀 순위 대비, 2회차부터는 직전 회차 대비 변동을
+        # 보여준다 — 매 라운드 실제로 무엇이 오르고 내렸는지 명시적으로 드러난다(요청 반영).
+        if sim_round == 1:
+            sim_rank_before_map = rank_before_map
+        else:
+            prev_df = sim_history[sim_round - 2][0]
+            sim_rank_before_map = dict(zip(prev_df["item_id"].astype(int), prev_df["rank"]))
+        st.caption(f"🔁 새로고침 시뮬레이션 — {sim_round}/{_SIM_ROUNDS}회차 (노출 이력이 실제로 누적됩니다)")
+        _render_model_status_or_grid(
+            sim_status, sim_message, sim_items,
+            id_key="item_id", user_id=user_id,
+            model_key=f"als_sim_round{sim_round}",
+            rank_before_map=sim_rank_before_map,
+        )
+    else:
+        if sim_round > 0:
+            st.caption("⏸️ Twiddler 미적용 — 새로고침 시뮬레이션은 Twiddler 적용(After) 상태에서만 순위가 변합니다.")
         _render_model_status_or_grid(
             als_status, als_message, als_items,
-            id_key="item_id", common_ids=common_ids, user_id=user_id,
+            id_key="item_id", user_id=user_id,
             model_key=f"als_{twiddler_phase.lower()}",
             rank_before_map=None if twiddler_phase == "Before" else rank_before_map,
             plain_rank_mode=(twiddler_phase == "Before"),
         )
 
-    with col_gcn:
-        st.markdown(_ALGO_RIGHT_MARKER, unsafe_allow_html=True)
-        st.markdown("### 🚀 LightGCN")
-        st.write("GNN 기반 협업 필터링 · Twiddler 미적용")
-
-        st.radio(
-            "그래프 종류",
-            ["tripartite", "bipartite"],
-            index=0,  # 기본값 "삼분그래프"
-            horizontal=True,
-            key="gcn_graph_type",
-            format_func=lambda x: (
-                "삼분그래프 (페르소나 포함)" if x == "tripartite" else "이분그래프 (페르소나 미포함)"
-            ),
-            label_visibility="collapsed",
-        )
-        graph_phase = st.session_state.get("gcn_graph_type", "tripartite")
-
-        if graph_phase == "tripartite":
-            gcn_status, gcn_message, gcn_items = gcn_tri_status, gcn_tri_message, gcn_tri_items
-            gcn_common_ids = common_ids
-        else:
-            gcn_status, gcn_message, gcn_items = gcn_bi_status, gcn_bi_message, gcn_bi_items
-            gcn_common_ids = set()  # 공통 추천 배지는 삼분그래프 기준(주 비교 대상)으로만 계산
-
-        _render_model_status_or_grid(
-            gcn_status, gcn_message, gcn_items,
-            id_key="item_id", common_ids=gcn_common_ids, user_id=user_id,
-            model_key=f"gcn_{graph_phase}",
-        )
+    st.divider()
+    st.markdown("### 📈 오프라인 성능 지표 (ALS only vs ALS+Twiddler)")
+    render_eval_metrics(context="main", persona_label=user_info["persona_label"])
 
 
-# ── 상세 추천 화면 ─────────────────────────────────────────────────────────────
+# ── Tab 1: Twiddler 재랭킹 — 상세(연관 상품) 화면 ──────────────────────────────────
 
-def _render_detail_recommend(demo_users_df: pd.DataFrame) -> None:
+def _render_rerank_detail(demo_users_df: pd.DataFrame) -> None:
+    """Tab 1(Twiddler 재랭킹) 상세페이지 서브탭 — 보완재 vs 보완재+Twiddler."""
     if st.button("← 메인으로 돌아가기"):
         st.session_state["view"] = "main"
         st.rerun()
@@ -360,10 +407,10 @@ def _render_detail_recommend(demo_users_df: pd.DataFrame) -> None:
     # ── 유저 소개 — 메인 화면과 동일한 선택 위젯을 그대로 재사용해, 같은 상품에 대해
     #    페르소나/유저를 바꿔가며 보완재 추천 결과를 비교할 수 있게 한다 ──────────
     user_id, user_info = render_persona_and_user_selector(demo_users_df)
-    st.caption(
-        f"페르소나: {user_info['persona_label']} · 유저 유형: {user_info['user_type_label']} "
-        f"· 행동 로그: {user_info['log_count']:,}건"
-    )
+    render_persona_card(user_info)
+    render_user_card(user_id, user_info["persona_label"], user_info["user_type_label"], user_info["log_count"])
+    render_user_twiddler_case(user_id)
+    st.divider()
 
     try:
         products_df = load_products()
@@ -432,12 +479,94 @@ def _render_detail_recommend(demo_users_df: pd.DataFrame) -> None:
         ncols=4, show_detail_button=False,
     )
 
+    st.divider()
+    st.markdown("### 📈 오프라인 성능 지표 (보완재 only vs 보완재+Twiddler)")
+    render_eval_metrics(context="detail", persona_label=user_info["persona_label"])
+
+
+# ── Tab 2: 페르소나 기여도 ──────────────────────────────────────────────────────
+
+def _render_persona_tab(selected_categories: list[str], demo_users_df: pd.DataFrame) -> None:
+    """Tab 2(페르소나 기여도) — LightGCN bi-graph vs tri-graph.
+
+    reports/UI_TAB_RESTRUCTURE_PLAN.md 기준: 상단 정량비교(bi vs tri HR@K/NDCG@K)와
+    페르소나 유무 영향 케이스는 LightGCN 모델이 아직 스텁이라 이번 범위에서 제외했다
+    (모델 학습 완료 후 별도 계획). 카드 그리드는 기존 _render_main_recommend에서
+    로직 변경 없이 그대로 이관. 하단 서브그래프는 reports/USER_GRAPH_VIZ_PLAN.md 참고.
+    """
+    st.title("🕸️ 페르소나 기여도 — bi-graph vs tri-graph")
+
+    st.markdown("---")
+    user_id, user_info = render_persona_and_user_selector(demo_users_df)
+    render_persona_card(user_info)
+    render_user_card(user_id, user_info["persona_label"], user_info["user_type_label"], user_info["log_count"])
+
+    # Twiddler 재랭킹 탭의 "Twiddler 재랭킹 근거"와 같은 위치(유저 카드 바로 아래) —
+    # 이 탭에서는 아직 근거 대신 준비 중 안내를 보여준다(요청 반영: 위치 통일).
+    st.info(
+        "🚧 LightGCN 모델 학습 완료 후 bi-graph vs tri-graph 정량 비교(HR@K/NDCG@K)와 "
+        "페르소나 유무에 따른 순위·카테고리 분포 비교 케이스가 추가될 예정입니다."
+    )
+
+    try:
+        products_df = load_products()
+        gcn_tri_recs, gcn_tri_status, gcn_tri_message = get_main_recommendations(
+            user_id, "LightGCN", graph_type="tripartite"
+        )
+        gcn_bi_recs, gcn_bi_status, gcn_bi_message = get_main_recommendations(
+            user_id, "LightGCN", graph_type="bipartite"
+        )
+    except FileNotFoundError as e:
+        st.error(f"데이터를 불러올 수 없습니다: `{e}`")
+        return
+
+    gcn_tri_items = (
+        gcn_tri_recs.merge(products_df, on="item_id", how="left")
+        .pipe(lambda df: df[df["category"].isin(selected_categories)])
+    )
+    gcn_bi_items = (
+        gcn_bi_recs.merge(products_df, on="item_id", how="left")
+        .pipe(lambda df: df[df["category"].isin(selected_categories)])
+    )
+
+    st.markdown("### 🚀 LightGCN")
+    st.write("GNN 기반 협업 필터링 · Twiddler 미적용")
+
+    st.radio(
+        "그래프 종류",
+        ["tripartite", "bipartite"],
+        index=0,  # 기본값 "삼분그래프"
+        horizontal=True,
+        key="gcn_graph_type",
+        format_func=lambda x: (
+            "삼분그래프 (페르소나 포함)" if x == "tripartite" else "이분그래프 (페르소나 미포함)"
+        ),
+        label_visibility="collapsed",
+    )
+    graph_phase = st.session_state.get("gcn_graph_type", "tripartite")
+
+    if graph_phase == "tripartite":
+        gcn_status, gcn_message, gcn_items = gcn_tri_status, gcn_tri_message, gcn_tri_items
+    else:
+        gcn_status, gcn_message, gcn_items = gcn_bi_status, gcn_bi_message, gcn_bi_items
+
+    _render_model_status_or_grid(
+        gcn_status, gcn_message, gcn_items,
+        id_key="item_id", user_id=user_id, model_key=f"gcn_{graph_phase}",
+    )
+
+    st.divider()
+    render_user_graph(user_id)
+
 
 # ── 라우터 ─────────────────────────────────────────────────────────────────────
 
 def main() -> None:
     if "view" not in st.session_state:
         st.session_state["view"] = "main"
+    if "main_tab" not in st.session_state:
+        # 접속 시 기본 진입 탭 — 페르소나 기여도(요청 반영).
+        st.session_state["main_tab"] = "persona"
 
     selected_categories, demo_users_df = _setup_sidebar()
 
@@ -445,11 +574,15 @@ def main() -> None:
         st.warning("데이터를 불러올 수 없어 유저를 선택할 수 없습니다.")
         return
 
+    main_tab = st.session_state.get("main_tab", "persona")
     view = st.session_state["view"]
-    if view == "main":
-        _render_main_recommend(selected_categories, demo_users_df)
-    elif view == "detail":
-        _render_detail_recommend(demo_users_df)
+    if main_tab == "rerank":
+        if view == "main":
+            _render_rerank_main(selected_categories, demo_users_df)
+        elif view == "detail":
+            _render_rerank_detail(demo_users_df)
+    elif main_tab == "persona":
+        _render_persona_tab(selected_categories, demo_users_df)
 
 
 main()
