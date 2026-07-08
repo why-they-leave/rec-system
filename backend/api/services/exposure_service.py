@@ -15,6 +15,11 @@ def get_recent_exposure(user_id: int, context: str) -> dict[int, float]:
     return dict(_exposure_store.get((user_id, context), {}))
 
 
+def reset(user_id: int, context: str) -> None:
+    """특정 유저/컨텍스트의 노출 이력을 초기화한다 — 새로고침 시뮬레이션을 매번 깨끗한 상태(라운드 0)에서 시작하기 위함."""
+    _exposure_store.pop((user_id, context), None)
+
+
 def record_exposure(user_id: int, context: str, shown_item_ids: list[int], decay: float) -> None:
     """decay는 유저 개인화 값(persona_service.get_user_decay)을 그대로 받는다."""
     key = (user_id, context)
