@@ -40,6 +40,7 @@ from utils.data_loader import (
 from utils.rank_delta import get_rank_delta
 from components.user_selector import render_persona_and_user_selector
 from components.product_card import render_product_card, render_current_product_card
+from src.modeling.twiddler.rerank import POOL_MULTIPLIER
 
 _STATIC_DIR = _APP_DIR / "static"
 
@@ -66,6 +67,15 @@ _ALGO_RIGHT_MARKER = '<div style="display:none;"></div>'
 
 # 카드 그리드 마커 — CSS :has() 가 이 마커를 감싼 컨테이너를 찾아 카드 높이를 통일하도록 앵커 역할
 _CARD_GRID_MARKER = '<div data-card-grid style="display:none"></div>'
+
+# 화면에 실제로 보여줄 카드 개수. Twiddler "after"는 backend에서 이 값의
+# POOL_MULTIPLIER배(= backend/api/core.py 의 fetch_n)만큼 넓은 풀에서 재랭킹하므로,
+# "before" 순위 추적(rank_before_map)도 같은 폭으로 가져와야 풀 밖에서 승격된 상품에
+# 정확한 "▲" 배지를 매길 수 있다 — 좁게 가져오면 그 상품은 배지 없이 "새 항목"처럼
+# 보이고, 반대로 밀려난 자리만 "▼"로 보여 마치 내려간 쪽만 있고 올라간 쪽은 없는
+# 것처럼 보이는 착시가 생긴다.
+_MAIN_TOP_N = 10
+_DETAIL_TOP_N = 8
 
 
 # ── 사이드바 ───────────────────────────────────────────────────────────────────
@@ -205,7 +215,12 @@ def _render_main_recommend(selected_categories: list[str], demo_users_df: pd.Dat
 
     try:
         products_df = load_products()
-        als_before_df, before_status, before_message = get_main_recommendations(user_id, "ALS", "before")
+        # 순위 추적용으로 실제 표시 개수보다 넓은 풀을 가져온다(POOL_MULTIPLIER 설명은
+        # 상단 _MAIN_TOP_N 주석 참고). 화면에는 head(_MAIN_TOP_N)만 보여준다.
+        als_before_pool_df, before_status, before_message = get_main_recommendations(
+            user_id, "ALS", "before", top_n=_MAIN_TOP_N * POOL_MULTIPLIER
+        )
+        als_before_df = als_before_pool_df.head(_MAIN_TOP_N)
     except FileNotFoundError as e:
         st.error(f"데이터를 불러올 수 없습니다: `{e}`")
         return
@@ -225,7 +240,9 @@ def _render_main_recommend(selected_categories: list[str], demo_users_df: pd.Dat
     twiddler_phase = "Before" if is_cold else st.session_state.get("als_twiddler_phase", "After")
 
     try:
-        als_after_df, after_status, after_message = get_main_recommendations(user_id, "ALS", "after")
+        als_after_df, after_status, after_message = get_main_recommendations(
+            user_id, "ALS", "after", top_n=_MAIN_TOP_N
+        )
         gcn_tri_recs, gcn_tri_status, gcn_tri_message = get_main_recommendations(
             user_id, "LightGCN", graph_type="tripartite"
         )
@@ -241,7 +258,9 @@ def _render_main_recommend(selected_categories: list[str], demo_users_df: pd.Dat
     else:
         als_recs, als_status, als_message = als_after_df, after_status, after_message
 
-    rank_before_map = dict(zip(als_before_df["item_id"].astype(int), als_before_df["rank"]))
+    # 풀 전체(_MAIN_TOP_N * POOL_MULTIPLIER) 기준 순위로 추적 — Twiddler가 상위 노출권
+    # 밖에서 끌어올린 상품도 정확한 "▲" 배지를 받도록 한다.
+    rank_before_map = dict(zip(als_before_pool_df["item_id"].astype(int), als_before_pool_df["rank"]))
 
     # Jaccard — 현재 선택된 ALS 결과 vs LightGCN(삼분그래프, 페르소나 포함 — 주 비교 대상)
     common_ids = set(als_recs["item_id"]) & set(gcn_tri_recs["item_id"])
@@ -348,9 +367,12 @@ def _render_detail_recommend(demo_users_df: pd.DataFrame) -> None:
 
     try:
         products_df = load_products()
-        cf_before_df, before_status, before_message = get_detail_recommendations(
-            item_id, top_n=8, user_id=user_id, twiddler="before"
+        # 순위 추적용으로 실제 표시 개수보다 넓은 풀을 가져온다(상단 _MAIN_TOP_N 주석의
+        # POOL_MULTIPLIER 설명 참고). 화면에는 head(_DETAIL_TOP_N)만 보여준다.
+        cf_before_pool_df, before_status, before_message = get_detail_recommendations(
+            item_id, top_n=_DETAIL_TOP_N * POOL_MULTIPLIER, user_id=user_id, twiddler="before"
         )
+        cf_before_df = cf_before_pool_df.head(_DETAIL_TOP_N)
     except FileNotFoundError as e:
         st.error(f"데이터를 불러올 수 없습니다: `{e}`")
         return
@@ -369,7 +391,7 @@ def _render_detail_recommend(demo_users_df: pd.DataFrame) -> None:
 
     try:
         cf_after_df, after_status, after_message = get_detail_recommendations(
-            item_id, top_n=8, user_id=user_id, twiddler="after"
+            item_id, top_n=_DETAIL_TOP_N, user_id=user_id, twiddler="after"
         )
     except FileNotFoundError as e:
         st.error(f"데이터를 불러올 수 없습니다: `{e}`")
@@ -383,7 +405,9 @@ def _render_detail_recommend(demo_users_df: pd.DataFrame) -> None:
     else:
         cf_df, cf_status, cf_message = cf_after_df, after_status, after_message
 
-    rank_before_map = dict(zip(cf_before_df["rec_item_id"].astype(int), cf_before_df["rank"]))
+    # 풀 전체(_DETAIL_TOP_N * POOL_MULTIPLIER) 기준 순위로 추적 — Twiddler가 상위 노출권
+    # 밖에서 끌어올린 상품도 정확한 "▲" 배지를 받도록 한다.
+    rank_before_map = dict(zip(cf_before_pool_df["rec_item_id"].astype(int), cf_before_pool_df["rank"]))
 
     if cf_status == "not_implemented":
         st.info(f"🚧 {cf_message}" if cf_message else "🚧 준비 중입니다.")
