@@ -4,9 +4,17 @@ from pathlib import Path
 
 import streamlit as st
 
-st.set_page_config(page_title="추천 시스템 데모", page_icon="🛍️", layout="wide")
-
 _APP_DIR = Path(__file__).parent
+_STATIC_DIR = _APP_DIR / "static"
+_LOGO_PATH = _STATIC_DIR / "logo.png"
+# st.logo()의 image 인자는 사이드바가 펼쳐진 동안 항상 표시되는데(API 제약 — icon_image를
+# 줘도 image 자체를 숨기는 옵션은 없음), 사이드바 안에 이미 큰 로고(st.sidebar.image)를
+# 따로 두므로 여기서는 완전 투명 1x1 placeholder를 넣어 사실상 보이지 않게 하고,
+# icon_image로만 실제 로고를 넘겨 "사이드바 접힘 시에만" 작은 아이콘이 뜨게 한다(요청 반영).
+_LOGO_BLANK_PATH = _STATIC_DIR / "logo_blank.png"
+
+st.set_page_config(page_title="추크크✨", page_icon=str(_LOGO_PATH), layout="wide")
+
 _ROOT_DIR = _APP_DIR.parent
 if str(_APP_DIR) not in sys.path:
     sys.path.insert(0, str(_APP_DIR))
@@ -52,8 +60,6 @@ from utils.style_loader import load_css
 
 from src.modeling.twiddler.rerank import POOL_MULTIPLIER
 
-_STATIC_DIR = _APP_DIR / "static"
-
 ALL_CATEGORIES = list(CATEGORY_EMOJI.keys())
 
 # st.pills 레이블 → 실제 카테고리명 역매핑
@@ -91,7 +97,21 @@ def _setup_sidebar() -> tuple[list[str], pd.DataFrame | None]:
     """
     load_css(str(_STATIC_DIR / "style.css"))
 
-    st.sidebar.title("🛍️ 추천 시스템 데모")
+    # image에 투명 placeholder를 줘서 사이드바가 펼쳐진 동안은 이 상단 아이콘이 보이지
+    # 않게 하고, icon_image(실제 로고)는 사이드바가 접혔을 때만 본문 좌상단에 뜬다(요청 반영).
+    st.logo(str(_LOGO_BLANK_PATH), icon_image=str(_LOGO_PATH), size="large")
+    # 사이드바 폭을 채우는 큰 로고 — CSS에서 0.7배로 축소(요청 반영, style.css 참고).
+    st.sidebar.image(str(_LOGO_PATH), width="stretch")
+    # st.sidebar.title()+caption()은 본문 subheader보다도 작게 보여 "데모 타이틀"보다는
+    # 부가 텍스트처럼 읽혔다 — 로고 아래 중앙 정렬된 브랜드 헤더로 교체(요청 반영,
+    # style.css의 .sidebar-brand*).
+    st.sidebar.markdown(
+        '<div class="sidebar-brand">'
+        '<div class="sidebar-brand-title">추크크✨</div>'
+        '<div class="sidebar-brand-subtitle">Recommendation Creator Crew</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
     st.sidebar.markdown("---")
 
     # ── 검증 화면 탭 (좌측 사이드바 버튼 — st.tabs는 상단 가로형이라 대신 사용) ──
