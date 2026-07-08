@@ -73,8 +73,12 @@ _CARD_GRID_MARKER = '<div data-card-grid style="display:none"></div>'
 def _setup_sidebar() -> tuple[list[str], pd.DataFrame | None]:
     """사이드바 초기화. (선택된 카테고리 목록, demo_users_df) 반환.
 
-    페르소나/유저 선택은 메인 화면(render_persona_and_user_selector)에서 렌더링하므로
-    사이드바는 카테고리 필터와 상세 화면 복귀 버튼만 담당한다.
+    페르소나/유저 선택은 메인 화면(render_persona_and_user_selector)에서 렌더링하고,
+    "메인으로 돌아가기" 버�른 상세 화면 본문에 이미 있으므로(_render_detail_recommend),
+    사이드바는 카테고리 필터(메인 화면 전용)만 담당한다. 상세 화면에서는 사이드바에
+    보여줄 내용이 없으므로 타이틀 아래 구분선 하나만 남기고 아무것도 추가하지 않는다
+    (예전엔 divider + 빈 공간 + divider + 버튼 구조라 사이드바가 비어 보이면서도
+    구분선이 두 번 나오는 게 어색했다).
     """
     load_css(str(_STATIC_DIR / "style.css"))
 
@@ -102,13 +106,6 @@ def _setup_sidebar() -> tuple[list[str], pd.DataFrame | None]:
             selected_categories = ALL_CATEGORIES[:]
         else:
             selected_categories = [_PILL_TO_CAT[selected_pill]]
-
-    # ── 상세 화면 전용: 메인 복귀 버튼 ─────────────────────────────────────
-    if st.session_state.get("view") == "detail":
-        st.sidebar.markdown("---")
-        if st.sidebar.button("← 메인으로 돌아가기", use_container_width=True):
-            st.session_state["view"] = "main"
-            st.rerun()
 
     return selected_categories, demo_users
 
@@ -329,7 +326,7 @@ def _render_main_recommend(selected_categories: list[str], demo_users_df: pd.Dat
 
 # ── 상세 추천 화면 ─────────────────────────────────────────────────────────────
 
-def _render_detail_recommend(user_id: int) -> None:
+def _render_detail_recommend(demo_users_df: pd.DataFrame) -> None:
     if st.button("← 메인으로 돌아가기"):
         st.session_state["view"] = "main"
         st.rerun()
@@ -340,6 +337,14 @@ def _render_detail_recommend(user_id: int) -> None:
     if item_id is None:
         st.warning("메인 화면에서 상품 카드를 클릭해 주세요.")
         return
+
+    # ── 유저 소개 — 메인 화면과 동일한 선택 위젯을 그대로 재사용해, 같은 상품에 대해
+    #    페르소나/유저를 바꿔가며 보완재 추천 결과를 비교할 수 있게 한다 ──────────
+    user_id, user_info = render_persona_and_user_selector(demo_users_df)
+    st.caption(
+        f"페르소나: {user_info['persona_label']} · 유저 유형: {user_info['user_type_label']} "
+        f"· 행동 로그: {user_info['log_count']:,}건"
+    )
 
     try:
         products_df = load_products()
@@ -420,13 +425,7 @@ def main() -> None:
     if view == "main":
         _render_main_recommend(selected_categories, demo_users_df)
     elif view == "detail":
-        # 페르소나/유저 선택 위젯은 메인 화면에만 렌더링되므로, 상세 화면에서는
-        # 직전에 메인에서 선택한 값을 session_state에서 그대로 읽는다.
-        user_id = st.session_state.get("selected_user")
-        if user_id is None:
-            st.warning("메인 화면에서 유저를 먼저 선택해 주세요.")
-            return
-        _render_detail_recommend(int(user_id))
+        _render_detail_recommend(demo_users_df)
 
 
 main()
