@@ -35,6 +35,9 @@ python-dotenv>=1.0
 # 추천 시스템
 implicit>=0.7
 
+# 추천 근거 그래프 시각화
+pyvis>=0.3.2
+
 # 추천 서빙 API
 fastapi>=0.110
 uvicorn>=0.29
