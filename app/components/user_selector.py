@@ -14,21 +14,21 @@ PERSONA_DESC: dict[str, str] = {
 }
 
 
-def render_user_selector(demo_users_df: pd.DataFrame) -> int:
-    """사이드바에 페르소나→유저 2단계 드롭다운 + 유저 정보 렌더링 — HTML 없음."""
-    personas = sorted(demo_users_df["persona_label"].unique().tolist())
-    selected_persona = st.sidebar.selectbox(
-        "🧭 페르소나 선택",
-        options=personas,
-        key="selected_persona",
-    )
-    st.sidebar.info(PERSONA_DESC.get(selected_persona, "설명 없음"), icon="📖")
+def render_persona_and_user_selector(demo_users_df: pd.DataFrame) -> tuple[int, dict]:
+    """메인 화면(유저 소개 영역)에 페르소나 선택과 유저 선택을 나란히(2열) 렌더링.
 
-    # 페르소나가 바뀌면 이전 페르소나 소속 유저 id가 새 옵션 목록에 없을 수 있어
-    # selected_user 위젯 상태를 초기화한다(안 하면 Streamlit이 옵션 불일치 에러를 낸다).
-    if st.session_state.get("_persona_selector_last") != selected_persona:
-        st.session_state["_persona_selector_last"] = selected_persona
-        st.session_state.pop("selected_user", None)
+    (user_id, 유저 정보 dict) 반환.
+    """
+    personas = sorted(demo_users_df["persona_label"].unique().tolist())
+
+    col_persona, col_user = st.columns(2)
+
+    with col_persona:
+        selected_persona = st.selectbox(
+            "🧭 페르소나 선택",
+            options=personas,
+            key="selected_persona",
+        )
 
     persona_users = demo_users_df[demo_users_df["persona_label"] == selected_persona]
     options = persona_users["user_id"].tolist()
@@ -37,20 +37,30 @@ def render_user_selector(demo_users_df: pd.DataFrame) -> int:
         for _, row in persona_users.iterrows()
     }
 
-    selected_id = st.sidebar.selectbox(
-        "👤 유저 선택",
-        options=options,
-        format_func=lambda uid: label_map[int(uid)],
-        key="selected_user",
-    )
+    with col_user:
+        # 페르소나별로 key를 다르게 줘서(페르소나가 바뀌면 완전히 새 위젯으로 취급) 이전
+        # 페르소나의 선택값이 옵션 목록이 바뀐 뒤에도 드롭다운 라벨에 남아있는 Streamlit
+        # 프론트엔드 표시 지연 버그를 피한다. 같은 key를 재사용하면 실제 선택값(session_state)은
+        # 바로 바뀌는데도 화면에 보이는 라벨 텍스트만 한 박자 늦게(다음 상호작용 때) 갱신됐다.
+        selected_id = st.selectbox(
+            "👤 유저 선택",
+            options=options,
+            format_func=lambda uid: label_map[int(uid)],
+            key=f"selected_user__{selected_persona}",
+        )
+
+    # 상세 페이지 등 다른 화면에서도 조회할 수 있도록 안정적인 키에 현재 선택값을 복사해 둔다.
+    st.session_state["selected_user"] = int(selected_id)
+
+    st.info(PERSONA_DESC.get(selected_persona, "설명 없음"), icon="📖")
 
     user_row = persona_users[persona_users["user_id"] == selected_id].iloc[0]
     user_type_label = "Heavy" if str(user_row["user_type"]).lower() == "heavy" else "Cold"
 
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("**📋 유저 정보**")
-    st.sidebar.write(f"페르소나: **{user_row['persona_label']}**")
-    st.sidebar.write(f"유저 유형: **{user_type_label}**")
-    st.sidebar.write(f"행동 로그: **{int(user_row['log_count']):,}건**")
+    user_info = {
+        "persona_label": user_row["persona_label"],
+        "user_type_label": user_type_label,
+        "log_count": int(user_row["log_count"]),
+    }
 
-    return int(selected_id)
+    return int(selected_id), user_info

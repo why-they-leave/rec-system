@@ -76,12 +76,21 @@ def _circle(color: str, emoji: str, size: int = 60) -> None:
 _DIRECTION_ICON: dict[str, str] = {"up": "▲", "down": "▼", "same": "–"}
 
 
-def _corner_badge(direction: str, label: str, icon: str | None = "auto") -> None:
+def _corner_badge(direction: str | None, label: str | None, icon: str | None = "auto") -> None:
     """카드 우상단 순위 변동 배지. style.css의 .badge-up/.badge-down/.badge-same 재사용.
 
     icon="auto"면 direction에 맞는 화살표/마이너스 아이콘을 붙이고, None이면 아이콘 없이
     라벨만 표시(데모 "적용 전" 상태 — 방향 계산 없는 단순 순번 표기용).
+    direction이 None이면 배지 없이 동일한 마크업(높이만 동일, 내용은 숨김)을 렌더링해,
+    순위 변동 배지가 있는 카드와 없는 카드 간 원(circle) 시작 위치가 어긋나지 않게 한다.
     """
+    if direction is None:
+        st.markdown(
+            '<div style="display:flex;justify-content:flex-end;margin-bottom:4px;">'
+            '<span class="badge" style="visibility:hidden;">placeholder</span></div>',
+            unsafe_allow_html=True,
+        )
+        return
     prefix = f"{_DIRECTION_ICON.get(direction, '')} " if icon == "auto" else ""
     st.markdown(
         f'<div style="display:flex;justify-content:flex-end;margin-bottom:4px;">'
@@ -118,6 +127,8 @@ def render_product_card(
             _corner_badge("same", f"{plain_rank_badge}위", icon=None)
         elif rank_delta is not None:
             _corner_badge(rank_delta["direction"], rank_delta["label"])
+        else:
+            _corner_badge(None, None)  # 배지 없는 카드도 동일 높이 확보 → 원(circle) 위치 정렬
 
         _circle(color, emoji)
         st.write(f"**{item['name']}**")

@@ -38,7 +38,7 @@ from utils.data_loader import (
     get_detail_recommendations,
 )
 from utils.rank_delta import get_rank_delta
-from components.user_selector import render_user_selector
+from components.user_selector import render_persona_and_user_selector
 from components.product_card import render_product_card, render_current_product_card
 
 _STATIC_DIR = _APP_DIR / "static"
@@ -64,23 +64,44 @@ _PILL_OPTIONS = ["🏷️ 전체"] + list(_PILL_TO_CAT.keys())
 _ALGO_LEFT_MARKER = '<div data-algo-left style="display:none"></div>'
 _ALGO_RIGHT_MARKER = '<div style="display:none;"></div>'
 
+# 카드 그리드 마커 — CSS :has() 가 이 마커를 감싼 컨테이너를 찾아 카드 높이를 통일하도록 앵커 역할
+_CARD_GRID_MARKER = '<div data-card-grid style="display:none"></div>'
+
 
 # ── 사이드바 ───────────────────────────────────────────────────────────────────
 
-def _setup_sidebar() -> int | None:
-    """사이드바 초기화. 선택된 user_id 반환."""
+def _setup_sidebar() -> tuple[list[str], pd.DataFrame | None]:
+    """사이드바 초기화. (선택된 카테고리 목록, demo_users_df) 반환.
+
+    페르소나/유저 선택은 메인 화면(render_persona_and_user_selector)에서 렌더링하므로
+    사이드바는 카테고리 필터와 상세 화면 복귀 버튼만 담당한다.
+    """
     load_css(str(_STATIC_DIR / "style.css"))
 
     st.sidebar.title("🛍️ 추천 시스템 데모")
     st.sidebar.markdown("---")
 
-    # ── 유저 선택 ────────────────────────────────────────────────────────────
     try:
         demo_users = load_demo_users()
-        user_id = render_user_selector(demo_users)
     except FileNotFoundError:
         st.sidebar.error("❌ `data/dashboard/demo_users.csv` 없음")
-        user_id = None
+        demo_users = None
+
+    # ── 카테고리 필터 (메인 화면 전용) ───────────────────────────────────────
+    selected_categories = ALL_CATEGORIES[:]
+    if st.session_state.get("view", "main") != "detail":
+        st.sidebar.markdown("**🏷️ 카테고리 필터**")
+        selected_pill = st.sidebar.pills(
+            "카테고리",
+            _PILL_OPTIONS,
+            default="🏷️ 전체",
+            key="cat_pill",
+            label_visibility="collapsed",
+        )
+        if selected_pill is None or selected_pill == "🏷️ 전체":
+            selected_categories = ALL_CATEGORIES[:]
+        else:
+            selected_categories = [_PILL_TO_CAT[selected_pill]]
 
     # ── 상세 화면 전용: 메인 복귀 버튼 ─────────────────────────────────────
     if st.session_state.get("view") == "detail":
@@ -89,7 +110,7 @@ def _setup_sidebar() -> int | None:
             st.session_state["view"] = "main"
             st.rerun()
 
-    return user_id
+    return selected_categories, demo_users
 
 
 # ── 추천 그리드 ─────────────────────────────────────────────────────────────────
@@ -117,33 +138,50 @@ def _render_recommend_grid(
 
     common_ids = common_ids or set()
     rows = [items_df.iloc[i : i + ncols] for i in range(0, len(items_df), ncols)]
-    for row_chunk in rows:
-        cols = st.columns(ncols)
-        for col, (_, item) in zip(cols, row_chunk.iterrows()):
-            with col:
-                iid = int(item[id_key])
-                badge = "🔁 공통 추천" if iid in common_ids else None
-                score = float(item["score"])
-                rank = int(item["rank"])
+    with st.container():
+        # 마커: CSS [data-testid="stVerticalBlock"]:has([data-card-grid]) 가 이 컨테이너를
+        # 찾아 카드 행의 높이를 통일한다(상품명 길이에 따라 카드 높이가 달라지는 문제 방지).
+        st.markdown(_CARD_GRID_MARKER, unsafe_allow_html=True)
+        for row_chunk in rows:
+            cols = st.columns(ncols)
+            for col, (_, item) in zip(cols, row_chunk.iterrows()):
+                with col:
+                    iid = int(item[id_key])
+                    badge = "🔁 공통 추천" if iid in common_ids else None
+                    score = float(item["score"])
+                    rank = int(item["rank"])
 
-                if plain_rank_mode:
-                    render_product_card(item, rank, badge, score=score, plain_rank_badge=rank)
-                else:
-                    rank_before = rank_before_map.get(iid) if rank_before_map else None
-                    rank_delta = get_rank_delta(rank_before, rank) if rank_before is not None else None
-                    render_product_card(
-                        item, rank, badge, score=score, rank_delta=rank_delta, rank_before=rank_before,
-                    )
+                    if plain_rank_mode:
+                        render_product_card(item, rank, badge, score=score, plain_rank_badge=rank)
+                    else:
+                        rank_before = rank_before_map.get(iid) if rank_before_map else None
+                        rank_delta = get_rank_delta(rank_before, rank) if rank_before is not None else None
+                        render_product_card(
+                            item, rank, badge, score=score, rank_delta=rank_delta, rank_before=rank_before,
+                        )
 
-                if show_detail_button:
-                    if st.button(
-                        "🔍 상세 추천",
-                        key=f"detail_{user_id}_{iid}_{model_key}",
-                        use_container_width=True,
-                    ):
-                        st.session_state["view"] = "detail"
-                        st.session_state["selected_item_id"] = iid
-                        st.rerun()
+                    if show_detail_button:
+                        if st.button(
+                            "🔍 연관 상품 보기",
+                            key=f"detail_{user_id}_{iid}_{model_key}",
+                            use_container_width=True,
+                        ):
+                            st.session_state["view"] = "detail"
+                            st.session_state["selected_item_id"] = iid
+                            st.rerun()
+
+
+def _render_twiddler_toggle(key: str, effective_phase: str, *, disabled: bool = False) -> None:
+    """Twiddler 적용 전/후 토글 버튼. 라디오 대신 클릭 한 번으로 상태를 전환한다.
+
+    effective_phase: 현재 유효한 phase("Before"/"After") — Cold 유저 게이팅 등으로 인해
+    session_state 저장값과 다를 수 있어 호출부가 계산한 값을 그대로 받는다.
+    """
+    is_after = effective_phase == "After"
+    label = "🔄 Twiddler 적용 중.. (적용 후)" if is_after else "⏸️ Twiddler 미적용 (적용 전)"
+    if st.button(label, key=f"{key}_toggle_btn", use_container_width=True, disabled=disabled):
+        st.session_state[key] = "Before" if is_after else "After"
+        st.rerun()
 
 
 def _render_model_status_or_grid(
@@ -161,8 +199,12 @@ def _render_model_status_or_grid(
 
 # ── 메인 추천 화면 ─────────────────────────────────────────────────────────────
 
-def _render_main_recommend(user_id: int) -> None:
+def _render_main_recommend(selected_categories: list[str], demo_users_df: pd.DataFrame) -> None:
     st.title("📊 메인 추천")
+
+    # ── 유저 소개 (페르소나 선택 + 유저 선택 — 둘 다 사이드바에서 이동, 나란히 배치) ──
+    st.markdown("---")
+    user_id, user_info = render_persona_and_user_selector(demo_users_df)
 
     try:
         products_df = load_products()
@@ -171,21 +213,12 @@ def _render_main_recommend(user_id: int) -> None:
         st.error(f"데이터를 불러올 수 없습니다: `{e}`")
         return
 
-    # ── 카테고리 필터 (pills) ────────────────────────────────────────────────
-    selected_pill = st.pills(
-        "카테고리",
-        _PILL_OPTIONS,
-        default="🏷️ 전체",
-        key="cat_pill",
-        label_visibility="collapsed",
-    )
-    if selected_pill is None or selected_pill == "🏷️ 전체":
-        selected_categories = ALL_CATEGORIES[:]
-    else:
-        selected_categories = [_PILL_TO_CAT[selected_pill]]
-
-    st.markdown("---")
     st.subheader(f"User {user_id:03d}")
+    st.markdown(
+        f"**페르소나:** {user_info['persona_label']}  \n"
+        f"**유저 유형:** {user_info['user_type_label']}  \n"
+        f"**행동 로그:** {user_info['log_count']:,}건"
+    )
 
     # ── 유저 유형 판별 (Twiddler 게이팅) ────────────────────────────────────
     user_type_val = als_before_df["user_type"].iloc[0].upper() if not als_before_df.empty else "—"
@@ -232,6 +265,13 @@ def _render_main_recommend(user_id: int) -> None:
         .pipe(lambda df: df[df["category"].isin(selected_categories)])
     )
 
+    # ── 핵심 지표 (대시보드 성격에 맞게 화면 상단으로 배치) ──────────────────
+    m1, m2, m3 = st.columns(3)
+    m1.metric(f"공통 추천 상품 (ALS {twiddler_phase} vs LightGCN 삼분그래프)", f"{len(common_ids)}개 / 10개")
+    m2.metric("Jaccard 유사도", f"{jaccard:.3f}")
+    m3.metric("유저 유형", user_type_val)
+    st.divider()
+
     # ── 2열 레이아웃: ALS | LightGCN (구분선은 CSS ::after 로 gap 정중앙에 배치) ──
     col_als, col_gcn = st.columns(2)
 
@@ -245,16 +285,7 @@ def _render_main_recommend(user_id: int) -> None:
         else:
             st.caption("🔥 Heavy 유저: Twiddler 적용 효과 비교")
 
-        st.radio(
-            "Twiddler",
-            ["Before", "After"],
-            index=1,  # 기본값 "적용 후"
-            horizontal=True,
-            key="als_twiddler_phase",
-            format_func=lambda x: f"{x}  ({'적용 전' if x == 'Before' else '적용 후'})",
-            label_visibility="collapsed",
-            disabled=is_cold,
-        )
+        _render_twiddler_toggle("als_twiddler_phase", twiddler_phase, disabled=is_cold)
 
         _render_model_status_or_grid(
             als_status, als_message, als_items,
@@ -295,13 +326,6 @@ def _render_main_recommend(user_id: int) -> None:
             model_key=f"gcn_{graph_phase}",
         )
 
-    # ── 하단 지표 ────────────────────────────────────────────────────────────
-    st.divider()
-    m1, m2, m3 = st.columns(3)
-    m1.metric(f"공통 추천 상품 (ALS {twiddler_phase} vs LightGCN 삼분그래프)", f"{len(common_ids)}개 / 10개")
-    m2.metric("Jaccard 유사도", f"{jaccard:.3f}")
-    m3.metric("유저 유형", user_type_val)
-
 
 # ── 상세 추천 화면 ─────────────────────────────────────────────────────────────
 
@@ -332,7 +356,7 @@ def _render_detail_recommend(user_id: int) -> None:
         return
 
     render_current_product_card(current_item.iloc[0])
-    st.markdown("### 🛒 함께 구매하면 좋은 상품 (보완재)")
+    st.markdown("#### 함께 구매하면 좋은 상품 (보완재)")
 
     if before_status == "not_implemented":
         st.info(f"🚧 {before_message}" if before_message else "🚧 준비 중입니다.")
@@ -346,16 +370,8 @@ def _render_detail_recommend(user_id: int) -> None:
         st.error(f"데이터를 불러올 수 없습니다: `{e}`")
         return
 
-    st.radio(
-        "Twiddler",
-        ["Before", "After"],
-        index=1,  # 기본값 "적용 후"
-        horizontal=True,
-        key="cf_twiddler_phase",
-        format_func=lambda x: f"{x}  ({'적용 전' if x == 'Before' else '적용 후'})",
-        label_visibility="collapsed",
-    )
     twiddler_phase = st.session_state.get("cf_twiddler_phase", "After")
+    _render_twiddler_toggle("cf_twiddler_phase", twiddler_phase)
 
     if twiddler_phase == "Before":
         cf_df, cf_status, cf_message = cf_before_df, before_status, before_message
@@ -394,17 +410,23 @@ def main() -> None:
     if "view" not in st.session_state:
         st.session_state["view"] = "main"
 
-    user_id = _setup_sidebar()
+    selected_categories, demo_users_df = _setup_sidebar()
 
-    if user_id is None:
-        st.warning("사이드바에서 유저를 선택해 주세요.")
+    if demo_users_df is None:
+        st.warning("데이터를 불러올 수 없어 유저를 선택할 수 없습니다.")
         return
 
     view = st.session_state["view"]
     if view == "main":
-        _render_main_recommend(user_id)
+        _render_main_recommend(selected_categories, demo_users_df)
     elif view == "detail":
-        _render_detail_recommend(user_id)
+        # 페르소나/유저 선택 위젯은 메인 화면에만 렌더링되므로, 상세 화면에서는
+        # 직전에 메인에서 선택한 값을 session_state에서 그대로 읽는다.
+        user_id = st.session_state.get("selected_user")
+        if user_id is None:
+            st.warning("메인 화면에서 유저를 먼저 선택해 주세요.")
+            return
+        _render_detail_recommend(int(user_id))
 
 
 main()
