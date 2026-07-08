@@ -38,6 +38,11 @@ data/outputs/complementary/*
 !data/outputs/ALS/.gitkeep
 !data/outputs/complementary/.gitkeep
 
+# LightGCN 오프라인 평가용 로컬 산출물 (Issue #11) — retail-clickstream-analysis에서 가져온
+# 추천 결과/정답셋, 재학습 없이 재현 가능해서 추적하지 않음 (data/outputs/ALS와 동일 패턴)
+data/outputs/LightGCN/*
+!data/outputs/LightGCN/.gitkeep
+
 # 모델 아티팩트
 models/
 *.pkl
