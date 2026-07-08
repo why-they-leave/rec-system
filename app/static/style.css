@@ -27,6 +27,21 @@
     padding-top: 0.2rem !important;
 }
 
+/* ===== st.metric 값 글씨 크기 축소 =====
+ * 앱 전체에 st.metric 호출이 5곳뿐(유저 유형/Twiddler 상태, Rule 1/2 강도·선호 카테고리
+ * — app/main.py, app/components/eval_metrics_table.py)이라 전역 셀렉터로도 다른 메트릭과
+ * 섞일 위험이 없다. 기본값(Streamlit 테마 기준 약 2.25rem)이 "User 00259" subheader(h3,
+ * 약 1.5rem)보다 훨씬 커서 위계가 뒤집혀 보였다 — subheader보다 살짝 작게 낮춘다.
+ * 1.3rem은 너무 작다는 피드백으로 1.7rem으로 다시 키우고 굵게(bold) 처리.
+ */
+[data-testid="stMetricValue"] {
+    font-size: 1.7rem !important;
+    font-weight: 600 !important;
+}
+[data-testid="stMetricLabel"] {
+    font-size: 0.85rem !important;
+}
+
 /* ===== 상품 카드 ===== */
 .product-card {
     border: 1px solid var(--card-border);
@@ -56,9 +71,78 @@
     color: var(--badge-default-fg);
     margin-top: 6px;
 }
-.badge-up   { background: #ecfdf5; color: #16a34a; }
-.badge-down { background: #fff1f2; color: #dc2626; }
-.badge-same { background: #f3f4f6; color: #6b7280; }
+.badge-up      { background: #ecfdf5; color: #16a34a; }
+.badge-down    { background: #fff1f2; color: #dc2626; }
+.badge-same    { background: #f3f4f6; color: #6b7280; }
+.badge-new     { background: #eff6ff; color: #2563eb; }
+.badge-segment { background: #dbeafe; color: #1d4ed8; font-size: 0.72rem; white-space: nowrap; }
+
+/* ===== 페르소나 특성 카드 =====
+ * st.info 대신 커스텀 박스로 대체 — st.info는 배지를 헤더 우측에 나란히 배치할 만큼
+ * 유연한 레이아웃(flex header)을 지원하지 않는다(요청 반영).
+ */
+.persona-card {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: var(--card-radius);
+    padding: 14px 16px;
+    margin-bottom: 10px;
+}
+.persona-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+.persona-card-title {
+    font-weight: 700;
+    color: #1e3a8a;
+    font-size: 0.95rem;
+}
+.persona-card-desc {
+    font-size: 0.85rem;
+    color: #334155;
+    line-height: 1.5;
+}
+
+/* ===== 개별 유저 요약 카드 =====
+ * 아바타(유저 번호 원형) + 유형·로그·Twiddler 상태 한 줄 통합(요청 반영 — 기존엔
+ * subheader + markdown 3줄 + 별도 st.metric 2개로 흩어져 있었음).
+ */
+.user-summary-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: #f8fafc;
+    border-radius: var(--card-radius);
+    padding: 12px 16px;
+    margin-bottom: 10px;
+}
+.user-summary-avatar {
+    flex-shrink: 0;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: #e0e7ff;
+    color: #4338ca;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+}
+.user-summary-label { font-size: 0.75rem; color: var(--text-meta); margin-bottom: 2px; }
+.user-summary-name  { font-size: 0.95rem; font-weight: 700; color: #0f172a; }
+.user-summary-meta  { font-size: 0.8rem; color: var(--text-meta); }
+
+/* ===== 섹션 라벨 (반복 헤딩 없이 짧게 — 예: "Twiddler 재랭킹 근거") ===== */
+.section-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-meta);
+    margin-bottom: 4px;
+}
 
 /* ===== 현재 상품 가로형 카드 (상세 페이지) ===== */
 .current-product-card {
@@ -157,28 +241,6 @@
     flex: 1 !important;
     display: flex !important;
     flex-direction: column !important;
-}
-
-/* ===== ALS / LightGCN 구분선 ===== */
-/*
- * st.columns(2) 의 기본 gap = 1rem.
- * ALS 컬럼(data-algo-left 마커 포함)의 ::after 가상 요소를
- * right: -0.5rem 으로 배치해 gap 정중앙에 1px 선을 그린다.
- * overflow: visible 로 컬럼 경계를 넘어 gap 영역에 노출.
- */
-[data-testid="stColumn"]:has([data-algo-left]) {
-    position: relative !important;
-    overflow: visible !important;
-}
-[data-testid="stColumn"]:has([data-algo-left])::after {
-    content: '';
-    position: absolute;
-    right: -0.5rem;
-    top: 0;
-    width: 1px;
-    min-height: 1000px;
-    background: #f0ece4;
-    pointer-events: none;
 }
 
 /* ===== 사이드바: 타이틀을 페이지 네비게이션보다 위에 표시 ===== */

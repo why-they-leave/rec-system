@@ -6,7 +6,6 @@ HTML/SVG를 사용하지 않아 st.markdown 파싱 문제 없음.
 import pandas as pd
 import streamlit as st
 
-
 # ── 상품 타입 → 이모지 매핑 ────────────────────────────────────────────────────
 _PRODUCT_EMOJI: dict[str, str] = {
     # Electronics
@@ -73,7 +72,10 @@ def _circle(color: str, emoji: str, size: int = 60) -> None:
 
 
 # ── Twiddler 순위 변동 배지 (카드 우상단) ────────────────────────────────────────
-_DIRECTION_ICON: dict[str, str] = {"up": "▲", "down": "▼", "same": "–"}
+# "new": 비교 대상(rank_before_map)은 있었지만 그 안에 없던 상품 — 직전 대비 새로 진입.
+# 특히 새로고침 시뮬레이션에서 직전 라운드 top-10 밖에 있던 상품이 새로 올라오는 경우가
+# 정상 시나리오라 자주 나타난다(요청으로 발견 — 이전엔 빈 배지로 표시돼 혼란스러웠음).
+_DIRECTION_ICON: dict[str, str] = {"up": "▲", "down": "▼", "same": "–", "new": "🆕"}
 
 
 def _corner_badge(direction: str | None, label: str | None, icon: str | None = "auto") -> None:
