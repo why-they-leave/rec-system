@@ -374,11 +374,13 @@
 /* 오른쪽(개별 유저) 칸은 페르소나명을 빼고 유저 번호/메타/뱃지만 남아 왼쪽(페르소나
  * 설명)보다 내용이 짧다 — 똑같이 절반씩 나누면 오른쪽에 불필요한 빈 공간이 생긴다
  * (요청 반영: "유저 설명이 저렇게 긴 가로폭을 차지할 필요 없는거 같아"). 왼쪽에 더
- * 넓은 비중을 준다. */
-.user-summary-col:first-child {
+ * 넓은 비중을 준다. :first-child/:last-child 대신 명시적 클래스를 쓴다 — 페르소나
+ * 칸이 생략되는 화면(show_persona=False)에서는 유저 칸이 유일한 자식이 되어 last-child에도
+ * 걸려 buggy하게 좁아지기 때문(요청으로 발견). */
+.user-summary-col-persona {
     flex: 1.6 1 0;
 }
-.user-summary-col:last-child {
+.user-summary-col-user {
     flex: 1 1 0;
     max-width: 320px;
 }
@@ -414,13 +416,15 @@
 .user-summary-meta  { font-size: 0.8rem; color: var(--text-meta); }
 
 /* ===== 섹션 라벨 (반복 헤딩 없이 짧게 — 예: "Twiddler 재랭킹 근거") =====
- * 위아래 st.divider() 사이에 놓이는 라벨이라 그 폭 안에서 중앙정렬(요청 반영).
+ * 중앙정렬 + 회색 굵은 글씨였다가, 위 "유저 선택" 같은 위젯 라벨(Streamlit 기본 라벨 —
+ * config.toml textColor #1a1a1a, 굵기 보통)과 정렬·톤이 안 맞아 보인다는 피드백으로
+ * 좌측정렬 + 검정 + 보통 굵기로 통일(요청 반영).
  */
 .section-label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-meta);
-    text-align: center;
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: #1a1a1a;
+    text-align: left;
     margin-bottom: 4px;
 }
 

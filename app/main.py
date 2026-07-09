@@ -733,6 +733,7 @@ def _render_rerank_main(
         st.caption("추천 비교에 사용할 페르소나와 데모 유저를 선택합니다.")
         user_id, user_info = render_persona_and_user_selector(demo_users_df)
         render_user_summary_card(user_id, user_info)
+        render_user_twiddler_case(user_id)
 
         # 선택 화면이 텍스트만 있어 밋밋하다는 피드백으로, 이 유저에게 Twiddler 적용
         # 전(before) 원래 보여지는 추천 상품을 미리보기로 깔아준다(요청 반영: "무작위로
@@ -765,7 +766,7 @@ def _render_rerank_main(
     if rerank_page == "metrics":
         st.title("오프라인 성능 지표")
         st.caption("현재 선택된 모델과 페르소나 기준으로 Before/After 성능 지표를 확인합니다.")
-        model_choice = st.session_state.get("rerank_model_type", "ALS")
+        model_choice = _render_rerank_model_toggle()
         if model_choice == "ALS":
             eval_context, eval_label = "main", "ALS"
         else:
@@ -775,6 +776,7 @@ def _render_rerank_main(
         return
 
     st.title("추천 비교")
+    render_user_summary_card(user_id, user_info, show_persona=False)
     st.caption(
         f"User {user_id:05d} · {user_info['user_type_label'].upper()} · "
         f"{user_info['persona_label']} 기준으로 Before/After 추천 순위를 비교합니다."
@@ -786,6 +788,8 @@ def _render_rerank_main(
         st.error(f"데이터를 불러올 수 없습니다: `{e}`")
         return
 
+    # 모델 토글 버튼 자체는 _render_model_twiddler_block 안에서 그린다(내부 호출) —
+    # 여기서는 session_state에 저장된 현재 선택값만 읽어 어느 블록을 렌더링할지 정한다.
     model_choice = st.session_state.get("rerank_model_type", "ALS")
 
     if model_choice == "ALS":

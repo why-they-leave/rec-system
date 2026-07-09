@@ -171,6 +171,7 @@ def render_user_summary_card(
     user_id: int,
     user_info: dict,
     twiddler_status: str | None = None,
+    show_persona: bool = True,
 ) -> None:
     """개별 유저 카드 + 페르소나 특성 카드를 하나로 통합(요청 반영: 같은 유저에 대한
     정보인데 카드 2개로 나뉘어 있어 중복처럼 보인다는 UI 피드백).
@@ -181,22 +182,34 @@ def render_user_summary_card(
     기준으로 위/아래를 나눠야 전체 화면이 페르소나 정보 묶음 → 유저별로 바뀌는 정보
     묶음 순서로 일관된다).
     twiddler_status가 없으면(모델/phase 미확정 시점) 그 부분만 생략한다.
+    show_persona=False면 페르소나 특성(이름+설명) 부분을 생략하고 개별 유저 정보만
+    보여준다 — "추천 비교" 페이지는 페르소나 소개가 이미 "페르소나 및 유저 선택"
+    페이지에 있어 중복이라는 피드백 반영, 제목 바로 아래 짧게만 보여준다.
     """
     persona_label = user_info["persona_label"]
-    persona_ko = PERSONA_KO.get(persona_label, "")
-    persona_name = f"{persona_label} ({persona_ko})" if persona_ko else persona_label
     status_part = f" · Twiddler: {twiddler_status}" if twiddler_status else ""
     # 페르소나 특성(왼쪽) / 개별 유저(오른쪽)를 세로로 쌓지 않고 한 줄에 2열로 배치
     # (요청 반영: "이거 두개를 같은 줄에 놓고 싶어. 두 열로") — 가로 구분선 대신 세로
-    # 구분선(.user-summary-divider, border-left)으로 바꾼다.
+    # 구분선(.user-summary-divider, border-left)으로 바꾼다. show_persona=False면
+    # 왼쪽 칸과 구분선을 통째로 생략한다("추천 비교" 페이지 중복 제거 요청 반영) —
+    # 이때 오른쪽 칸은 유일한 자식이 되므로 폭 제한(.user-summary-col-user)도 같이 뺀다.
+    persona_col = ""
+    right_col_class = "user-summary-col"
+    if show_persona:
+        persona_ko = PERSONA_KO.get(persona_label, "")
+        persona_name = f"{persona_label} ({persona_ko})" if persona_ko else persona_label
+        persona_col = (
+            f'<div class="user-summary-col user-summary-col-persona">'
+            f'<div class="persona-card-name">{persona_name}</div>'
+            f'<div class="persona-card-desc">{user_info["persona_desc"]}</div>'
+            f"</div>"
+            f'<div class="user-summary-divider"></div>'
+        )
+        right_col_class = "user-summary-col user-summary-col-user"
     st.markdown(
         f'<div class="user-summary-card">'
-        f'<div class="user-summary-col">'
-        f'<div class="persona-card-name">{persona_name}</div>'
-        f'<div class="persona-card-desc">{user_info["persona_desc"]}</div>'
-        f"</div>"
-        f'<div class="user-summary-divider"></div>'
-        f'<div class="user-summary-col">'
+        f"{persona_col}"
+        f'<div class="{right_col_class}">'
         f'<div class="user-summary-header">'
         f'<div class="user-summary-avatar">{user_id}</div>'
         f"<div>"
