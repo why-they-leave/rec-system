@@ -726,6 +726,7 @@ def _render_rerank_main(
         st.caption("추천 비교에 사용할 페르소나와 데모 유저를 선택합니다.")
         user_id, user_info = render_persona_and_user_selector(demo_users_df)
         render_user_summary_card(user_id, user_info)
+        render_user_twiddler_case(user_id)
         return
 
     if rerank_page == "metrics":
@@ -741,6 +742,7 @@ def _render_rerank_main(
         return
 
     st.title("추천 비교")
+    render_user_summary_card(user_id, user_info, show_persona=False)
     st.caption(
         f"User {user_id:05d} · {user_info['user_type_label'].upper()} · "
         f"{user_info['persona_label']} 기준으로 Before/After 추천 순위를 비교합니다."

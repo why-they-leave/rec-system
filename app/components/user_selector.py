@@ -142,6 +142,7 @@ def render_user_summary_card(
     user_id: int,
     user_info: dict,
     twiddler_status: str | None = None,
+    show_persona: bool = True,
 ) -> None:
     """개별 유저 카드 + 페르소나 특성 카드를 하나로 통합(요청 반영: 같은 유저에 대한
     정보인데 카드 2개로 나뉘어 있어 중복처럼 보인다는 UI 피드백).
@@ -152,16 +153,24 @@ def render_user_summary_card(
     기준으로 위/아래를 나눠야 전체 화면이 페르소나 정보 묶음 → 유저별로 바뀌는 정보
     묶음 순서로 일관된다).
     twiddler_status가 없으면(모델/phase 미확정 시점) 그 부분만 생략한다.
+    show_persona=False면 페르소나 특성(이름+설명) 부분을 생략하고 개별 유저 정보만
+    보여준다 — "추천 비교" 페이지는 페르소나 소개가 이미 "페르소나 및 유저 선택"
+    페이지에 있어 중복이라는 피드백 반영, 제목 바로 아래 짧게만 보여준다.
     """
     persona_label = user_info["persona_label"]
-    persona_ko = PERSONA_KO.get(persona_label, "")
-    persona_name = f"{persona_label} ({persona_ko})" if persona_ko else persona_label
     status_part = f" · Twiddler: {twiddler_status}" if twiddler_status else ""
+    persona_block = ""
+    if show_persona:
+        persona_ko = PERSONA_KO.get(persona_label, "")
+        persona_name = f"{persona_label} ({persona_ko})" if persona_ko else persona_label
+        persona_block = (
+            f'<div class="persona-card-name">{persona_name}</div>'
+            f'<div class="persona-card-desc">{user_info["persona_desc"]}</div>'
+            f'<div class="user-summary-divider"></div>'
+        )
     st.markdown(
         f'<div class="user-summary-card">'
-        f'<div class="persona-card-name">{persona_name}</div>'
-        f'<div class="persona-card-desc">{user_info["persona_desc"]}</div>'
-        f'<div class="user-summary-divider"></div>'
+        f"{persona_block}"
         f'<div class="user-summary-header">'
         f'<div class="user-summary-avatar">{user_id}</div>'
         f"<div>"

@@ -389,13 +389,15 @@
 .user-summary-meta  { font-size: 0.8rem; color: var(--text-meta); }
 
 /* ===== 섹션 라벨 (반복 헤딩 없이 짧게 — 예: "Twiddler 재랭킹 근거") =====
- * 위아래 st.divider() 사이에 놓이는 라벨이라 그 폭 안에서 중앙정렬(요청 반영).
+ * 중앙정렬 + 회색 굵은 글씨였다가, 위 "유저 선택" 같은 위젯 라벨(Streamlit 기본 라벨 —
+ * config.toml textColor #1a1a1a, 굵기 보통)과 정렬·톤이 안 맞아 보인다는 피드백으로
+ * 좌측정렬 + 검정 + 보통 굵기로 통일(요청 반영).
  */
 .section-label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-meta);
-    text-align: center;
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: #1a1a1a;
+    text-align: left;
     margin-bottom: 4px;
 }
 
