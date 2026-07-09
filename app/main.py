@@ -40,6 +40,7 @@ if _data_file_id:
 import pandas as pd
 from components.eval_metrics_table import render_eval_metrics, render_user_twiddler_case
 from components.product_card import render_current_product_card, render_product_card
+from components.team_page import render_team_page
 from components.user_graph import render_user_graph
 from components.user_selector import (
     render_persona_and_user_selector,
@@ -133,6 +134,12 @@ def _setup_sidebar() -> tuple[list[str], pd.DataFrame | None]:
     ):
         st.session_state["main_tab"] = "persona"
         st.rerun()
+    if st.sidebar.button(
+        "팀 소개", width="stretch",
+        type="primary" if current_tab == "team" else "secondary",
+    ):
+        st.session_state["main_tab"] = "team"
+        st.rerun()
     st.sidebar.markdown("---")
 
     try:
@@ -143,7 +150,7 @@ def _setup_sidebar() -> tuple[list[str], pd.DataFrame | None]:
 
     # ── 카테고리 필터 (메인 화면 전용) ───────────────────────────────────────
     selected_categories = ALL_CATEGORIES[:]
-    if st.session_state.get("view", "main") != "detail":
+    if current_tab != "team" and st.session_state.get("view", "main") != "detail":
         st.sidebar.markdown("**🏷️ 카테고리 필터**")
         selected_pill = st.sidebar.pills(
             "카테고리",
@@ -725,6 +732,8 @@ def main() -> None:
             _render_rerank_detail(demo_users_df)
     elif main_tab == "persona":
         _render_persona_tab(selected_categories, demo_users_df)
+    elif main_tab == "team":
+        render_team_page()
 
 
 main()
