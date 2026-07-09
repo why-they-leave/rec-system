@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 _APP_DIR = Path(__file__).parent
 _STATIC_DIR = _APP_DIR / "static"
@@ -45,7 +46,11 @@ from components.eval_metrics_table import (  # noqa: E402
     render_user_twiddler_case,
 )
 from components.glossary import render_glossary  # noqa: E402
-from components.product_card import render_current_product_card, render_product_card  # noqa: E402
+from components.product_card import (  # noqa: E402
+    product_icon_html,
+    render_current_product_card,
+    render_product_card,
+)
 from components.project_intro import render_project_intro  # noqa: E402
 from components.team_page import render_team_page  # noqa: E402
 from components.user_graph import render_user_graph  # noqa: E402
@@ -281,6 +286,96 @@ def _setup_sidebar() -> tuple[list[str], set[str] | None, pd.DataFrame | None]:
                 if any(t in selected_types for t in CATEGORY_SUBTYPES.get(c, []))
             ]
 
+    if current_tab == "persona":
+        # "효과 해석"은 유저 선택 → bi/tri 정량 비교 → 순위·카테고리 비교 → 추천 근거
+        # 그래프까지 하나의 논증 흐름이라, "추천 비교" 탭처럼 별도 페이지로 쪼개면
+        # 스토리가 끊긴다(요청 논의 반영) — 대신 페이지는 그대로 두고 사이드바에서
+        # 클릭하면 같은 페이지 안에서 앵커(#section-*)로 스크롤만 이동하게 한다.
+        # st.button 대신 plain <a href="#...">를 써서 rerun 없이 브라우저 네이티브
+        # 스크롤만 일어나게 한다(사이드바 목록과 톤은 .sidebar-anchor-menu로 맞춤).
+        st.sidebar.markdown("**효과 해석**")
+        st.sidebar.markdown(
+            '<div class="sidebar-anchor-menu">'
+            '<a href="#section-persona-user" id="nav-persona-user">유저 선택</a>'
+            '<a href="#section-persona-accuracy" id="nav-persona-accuracy">bi/tri 정량 비교</a>'
+            '<a href="#section-persona-rankshift" id="nav-persona-rankshift">순위·카테고리 비교</a>'
+            '<a href="#section-persona-graph" id="nav-persona-graph">추천 근거 그래프</a>'
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        # 다른 사이드바 메뉴(추천 비교 등)는 항상 "현재 페이지"가 흰 박스로 켜져
+        # 있는데, 앵커 링크는 그런 상태가 없어 톤이 안 맞아 보였다(요청 반영: "다른
+        # 사이드바랑 똑같이 맞춰줘야지") — 스크롤 위치를 보고 어느 섹션이 보이는지
+        # 계산해 해당 링크에 .active를 붙인다.
+        # 처음엔 IntersectionObserver를 썼는데, 이 스크립트는 components.html의
+        # 0px 높이 iframe 안에서 실행돼 new IntersectionObserver(...)의 암묵적
+        # root(뷰포트)가 "부모 페이지"가 아니라 "이 0px iframe 자신"이 되어버려
+        # 교차 판정이 전혀 안 됐다(요청으로 재현·확인 — 스크롤해도 활성 링크가 항상
+        # 첫 항목에 고정됨). getBoundingClientRect() 좌표를 직접 비교하는 방식은
+        # 어느 document에서 계산하든 뷰포트 기준 좌표라 이 문제가 없다 — window.parent
+        # 기준으로 "화면 위쪽 25% 지점을 지나간 섹션 중 가장 가까운 것"을 활성으로
+        # 고른다. 실제 스크롤은 window가 아니라 Streamlit 본문의 내부 컨테이너가
+        # 담당해 window.scrollY는 안 바뀌므로(요청으로 확인), scroll 이벤트를
+        # document에 capture:true로 걸어 내부 컨테이너의 스크롤도 잡아낸다.
+        components.html(
+            """
+            <script>
+            (function () {
+                const doc = window.parent.document;
+                const win = window.parent;
+                const pairs = [
+                    ["section-persona-user", "nav-persona-user"],
+                    ["section-persona-accuracy", "nav-persona-accuracy"],
+                    ["section-persona-rankshift", "nav-persona-rankshift"],
+                    ["section-persona-graph", "nav-persona-graph"],
+                ];
+                function setActive(navId) {
+                    pairs.forEach(([, nid]) => {
+                        const a = doc.getElementById(nid);
+                        if (a) a.classList.toggle("active", nid === navId);
+                    });
+                }
+                function updateActive() {
+                    const refY = win.innerHeight * 0.25;
+                    let bestId = pairs[0][1];
+                    let bestTop = -Infinity;
+                    pairs.forEach(([sid, nid]) => {
+                        const el = doc.getElementById(sid);
+                        if (!el) return;
+                        const top = el.getBoundingClientRect().top;
+                        if (top <= refY && top > bestTop) {
+                            bestTop = top;
+                            bestId = nid;
+                        }
+                    });
+                    setActive(bestId);
+                }
+                let scheduled = false;
+                function onScroll() {
+                    if (scheduled) return;
+                    scheduled = true;
+                    win.requestAnimationFrame(() => {
+                        scheduled = false;
+                        updateActive();
+                    });
+                }
+                function init() {
+                    const anyExists = pairs.some(([sid]) => doc.getElementById(sid));
+                    if (!anyExists) {
+                        setTimeout(init, 300);
+                        return;
+                    }
+                    doc.addEventListener("scroll", onScroll, true);
+                    win.addEventListener("scroll", onScroll, true);
+                    updateActive();
+                }
+                init();
+            })();
+            </script>
+            """,
+            height=0,
+        )
+
     return selected_categories, (selected_types or None), demo_users
 
 
@@ -362,7 +457,7 @@ def _render_recommend_grid(
     model_key: str = "",
     rank_before_map: dict | None = None,
     plain_rank_mode: bool = False,
-    ncols: int = 4,
+    ncols: int = 5,
     show_detail_button: bool = True,
     products_df: pd.DataFrame | None = None,
 ) -> None:
@@ -459,6 +554,9 @@ def _render_twiddler_toggle(key: str, effective_phase: str, *, disabled: bool = 
             width="stretch",
             type="secondary" if is_after else "primary",
             disabled=disabled,
+            # Before/After가 뭘 뜻하는지 안 보인다는 피드백(요청 반영) — hover 툴팁으로
+            # 짧게 설명한다(버튼 옆에 캡션을 추가하면 줄이 하나 더 늘어나 자리를 차지함).
+            help="Twiddler 재랭킹을 적용하기 전 원래 모델 추천 순위입니다.",
         ):
             st.session_state[key] = "Before"
             st.rerun()
@@ -469,6 +567,7 @@ def _render_twiddler_toggle(key: str, effective_phase: str, *, disabled: bool = 
             width="stretch",
             type="primary" if is_after else "secondary",
             disabled=disabled,
+            help="Twiddler 재랭킹을 적용해 페르소나 선호·노출 이력을 반영한 뒤의 순위입니다.",
         ):
             st.session_state[key] = "After"
             st.rerun()
@@ -507,12 +606,20 @@ def _render_refresh_simulation_button(
     history_key = f"sim_history_{user_id}_{session_prefix}"
     current_round = st.session_state.get(round_key, 0)
     label = (
-        f"🔁 새로고침 시뮬레이션 ({current_round}/{_SIM_ROUNDS}회차)"
+        f"새로고침 시뮬레이션 ({current_round}/{_SIM_ROUNDS}회차)"
         if current_round
-        else "🔁 새로고침 시뮬레이션 시작"
+        else "새로고침 시뮬레이션 시작"
     )
     if st.button(
-        label, key=f"sim_btn_{user_id}_{session_prefix}", width="stretch", disabled=disabled
+        label,
+        key=f"sim_btn_{user_id}_{session_prefix}",
+        width="stretch",
+        disabled=disabled,
+        # 버튼이 뭘 하는지 안 보인다는 피드백(요청 반영) — Before/After 툴팁과 같은 방식.
+        help=(
+            "클릭할 때마다 같은 유저가 다시 방문한 것처럼 노출 이력을 누적시켜, "
+            "반복 노출된 상품의 추천 점수가 실제로 낮아지는지 라이브로 보여줍니다."
+        ),
     ):
         next_round = current_round + 1 if current_round < _SIM_ROUNDS else 0
         st.session_state[round_key] = next_round
@@ -546,7 +653,9 @@ def _render_rerank_model_toggle() -> str:
             st.rerun()
     with col_lgcn:
         if st.button(
-            "LightGCN bipartite",
+            # Before/After 토글과 한 줄에 들어가면서 폭이 좁아져 "bipartite"까지 쓰면
+            # 줄바꿈/잘림이 생긴다(요청 반영: 한 줄로 합치기) — 짧게 "LightGCN"만 표시.
+            "LightGCN",
             key="rerank_model_lgcn_btn",
             width="stretch",
             type="primary" if current == "LightGCN-bipartite" else "secondary",
@@ -556,16 +665,83 @@ def _render_rerank_model_toggle() -> str:
     return st.session_state.get("rerank_model_type", "ALS")
 
 
+def _render_rank_summary_list(
+    items_df: pd.DataFrame,
+    id_key: str = "item_id",
+    rank_before_map: dict | None = None,
+    plain_rank_mode: bool = False,
+) -> None:
+    """카드 그리드 위에 순위·순위변동만 압축해서 먼저 보여주는 요약 리스트.
+
+    카드 안 순위 배지("🏆 N위 · 전 순위 N위" + 작은 "+2" 배지)가 작고 회색이라 순위가
+    바뀐 걸 알아채기 어렵다는 피드백(요청 반영: "카드 그리드 위에 요약 리스트 추가로") —
+    get_rank_delta와 같은 전/후 비교를 재사용하되, "+2" 대신 "2단계 상승"처럼 방향이
+    말로 바로 드러나는 문구를 쓰고 색으로도 강조한다.
+    """
+    if items_df.empty:
+        return
+    rows_html = []
+    for _, item in items_df.iterrows():
+        iid = int(item[id_key])
+        rank = int(item["rank"])
+        score = item.get("score")
+        match_html = f"<em>매칭 {float(score) * 100:.0f}%</em>" if pd.notna(score) else "<em></em>"
+
+        delta_html = ""
+        if not plain_rank_mode and rank_before_map is not None:
+            rank_before = rank_before_map.get(iid)
+            if rank_before is None:
+                delta_html = '<span class="rank-summary-delta rank-summary-delta-new">신규</span>'
+            else:
+                delta = rank_before - rank
+                if delta > 0:
+                    delta_html = (
+                        f'<span class="rank-summary-delta rank-summary-delta-up">'
+                        f"▲ {delta}단계 상승</span>"
+                    )
+                elif delta < 0:
+                    delta_html = (
+                        f'<span class="rank-summary-delta rank-summary-delta-down">'
+                        f"▼ {abs(delta)}단계 하락</span>"
+                    )
+                else:
+                    delta_html = (
+                        '<span class="rank-summary-delta rank-summary-delta-same">유지</span>'
+                    )
+
+        rows_html.append(
+            f'<div class="rank-summary-row">'
+            f'<div class="rank-summary-rank">{rank}</div>'
+            f"{product_icon_html(item['name'], size=26)}"
+            f'<div class="rank-summary-copy">'
+            f"<strong>{item['name']}</strong><span>{item['category']}</span></div>"
+            f"{match_html}"
+            f"{delta_html}"
+            f"</div>"
+        )
+    st.markdown(
+        f'<div class="rank-summary-panel">{"".join(rows_html)}</div>',
+        unsafe_allow_html=True,
+    )
+
+
 def _render_model_status_or_grid(
     status: str,
     message: str | None,
     items_df: pd.DataFrame,
     **grid_kwargs,
 ) -> None:
-    """모델이 아직 준비되지 않은 경우(not_implemented) 안내 문구를, 아니면 카드 그리드를 렌더링."""
+    """모델이 아직 준비되지 않은 경우(not_implemented) 안내 문구를, 아니면 요약
+    리스트 + 카드 그리드를 렌더링."""
     if status == "not_implemented":
         st.info(f"🚧 {message}" if message else "🚧 준비 중입니다.")
         return
+    _render_rank_summary_list(
+        items_df,
+        id_key=grid_kwargs.get("id_key", "item_id"),
+        rank_before_map=grid_kwargs.get("rank_before_map"),
+        plain_rank_mode=grid_kwargs.get("plain_rank_mode", False),
+    )
     _render_recommend_grid(items_df, **grid_kwargs)
 
 
@@ -630,12 +806,6 @@ def _render_model_twiddler_block(
     # 개별 유저 카드는 _render_rerank_main 상단(페르소나 특성 카드 위)으로 옮겨서
     # 여기서는 중복 렌더링하지 않는다(요청 반영).
 
-    # 모델 좌우 토글. 버튼 클릭은 session_state를 바꾸고 즉시 st.rerun()하므로,
-    # 이 함수가 지금 어떤 model_type로 호출됐는지와 무관하게 다음 rerun에서
-    # _render_rerank_main이 새로 선택된 모델의 블록을 그린다.
-    _render_rerank_model_toggle()
-    st.divider()
-
     try:
         after_df, after_status, after_message = get_main_recommendations(
             user_id,
@@ -663,14 +833,36 @@ def _render_model_twiddler_block(
     )
 
     # 모델 토글 바로 아래라 같은 모델명을 헤딩으로 또 띄우면 "ALS"가 중복으로 보인다.
+    # Heavy 유저 캡션("🔥 Heavy 유저: Twiddler 적용 효과 비교")은 페이지 상단 캡션
+    # ("User 00259 · HEAVY · ... 기준으로 Before/After 추천 순위를 비교합니다")과
+    # 내용이 겹쳐서(요청 반영: "차라리 여기에 붙었으면") 제거 — Cold 유저는 상단
+    # 캡션에 없는 새 정보(Twiddler 미적용·인기도 폴백)라 그대로 남긴다. LightGCN
+    # bipartite 캡션("GNN 기반 협업 필터링(페르소나 미결합) · Twiddler 적용 효과 비교")도
+    # 위 "모델 선택" 캡션과 페이지 상단 캡션 둘 다와 내용이 겹쳐서 같은 이유로 제거한다
+    # (요청 반영: "빼던지 적절한위치에 넣던지").
     if is_cold:
         st.caption("🧊 Cold 유저: Twiddler 미적용, 인기도 기반 추천")
-    elif gate_cold_users:
-        st.caption("🔥 Heavy 유저: Twiddler 적용 효과 비교")
-    else:
-        st.caption("GNN 기반 협업 필터링(페르소나 미결합) · Twiddler 적용 효과 비교")
 
-    col_toggle, col_sim = st.columns(2)
+    # 모델 좌우 토글을 예전엔 이 위에 독립된 한 줄(+구분선)로 뒀는데, 세로 공간을
+    # 줄이려는 목적으로(요청 반영: "als lightgcn 선택부를 줄일 목적으로 Twiddler
+    # 비포애프터랑 한줄로") Before/After·새로고침 버튼과 같은 줄 3열로 합쳤다. 버튼
+    # 클릭은 session_state를 바꾸고 즉시 st.rerun()하므로, 이 함수가 지금 어떤
+    # model_type로 호출됐는지와 무관하게 다음 rerun에서 _render_rerank_main이 새로
+    # 선택된 모델의 블록을 그린다 — 렌더링 위치를 옮겨도 로직에는 영향이 없다.
+    # "Twiddler 재랭킹 근거"와 같은 크기의 소제목을 붙여 이 줄이 뭘 고르는 곳인지
+    # 표시한다(요청 반영: "모델 선택 이런 거 위에 대제목이랑 크기 비슷하게").
+    st.markdown('<div class="section-label">추천 결과 비교</div>', unsafe_allow_html=True)
+    # st.caption + markdown **bold**는 실제로 font-weight:600까지만 올라가고 캡션
+    # 기본 크기(0.875rem)에 묻혀 잘 안 보였다(요청으로 재확인: "볼드처리", "글씨체
+    # 크기도 다른곳이랑 통일") — 페이지 상단 캡션과 같은 톤(.section-caption, 1rem
+    # /700)으로 맞춘다.
+    st.markdown(
+        '<div class="section-caption">ALS와 LightGCN bipartite 중 추천에 사용할 모델을 선택합니다.</div>',
+        unsafe_allow_html=True,
+    )
+    col_model, col_toggle, col_sim = st.columns([1.3, 1, 1.1])
+    with col_model:
+        _render_rerank_model_toggle()
     with col_toggle:
         _render_twiddler_toggle(phase_key, twiddler_phase, disabled=is_cold)
     with col_sim:
@@ -701,7 +893,7 @@ def _render_model_twiddler_block(
             prev_df = sim_history[sim_round - 2][0]
             sim_rank_before_map = dict(zip(prev_df["item_id"].astype(int), prev_df["rank"]))
         st.caption(
-            f"🔁 새로고침 시뮬레이션 {sim_round}/{_SIM_ROUNDS}회차 (노출 이력이 실제로 누적됩니다)"
+            f"새로고침 시뮬레이션 {sim_round}/{_SIM_ROUNDS}회차 (노출 이력이 실제로 누적됩니다)"
         )
         _render_model_status_or_grid(
             sim_status,
@@ -799,7 +991,10 @@ def _render_rerank_main(
     st.caption(
         f'<span style="color:#000000;">User {user_id:05d} · '
         f"{user_info['user_type_label'].upper()} · {user_info['persona_label']}</span> "
-        "기준으로 Before/After 추천 순위를 비교합니다.",
+        # 그냥 "Before/After"만 쓰면 뭐가 바뀌기 전/후인지 안 드러난다는 피드백
+        # (요청 반영: "어떤 비포애프터를 말하는건지 안와닿음") — Twiddler 재랭킹을
+        # 명시한다.
+        "기준으로 Twiddler 재랭킹 적용 전(Before)/후(After) 추천 순위를 비교합니다.",
         unsafe_allow_html=True,
     )
     render_user_summary_card(user_id, user_info, show_persona=False)
@@ -985,18 +1180,25 @@ def _render_persona_tab(
         unsafe_allow_html=True,
     )
 
+    # 사이드바 앵커 링크(#section-persona-*)가 스크롤해 갈 빈 표식 — 실제 텍스트 없이
+    # id만 심어둔다(요청 반영: "효과 해석도 사이드바 목차 필요할 것 같은데" 논의 결과,
+    # 페이지 분리 대신 같은 페이지 안 스크롤 이동으로 결정).
+    st.markdown('<div id="section-persona-user"></div>', unsafe_allow_html=True)
     user_id, user_info = render_persona_and_user_selector(demo_users_df)
     render_user_summary_card(user_id, user_info)
 
     st.divider()
+    st.markdown('<div id="section-persona-accuracy"></div>', unsafe_allow_html=True)
     st.markdown("### bi-graph vs tri-graph 정량 비교 (HR@K / NDCG@K)")
     render_lightgcn_persona_accuracy()
 
     st.divider()
+    st.markdown('<div id="section-persona-rankshift"></div>', unsafe_allow_html=True)
     st.markdown("### 페르소나 유무에 따른 순위 · 카테고리 분포 비교")
     render_lightgcn_persona_rank_shift_and_category()
 
     st.divider()
+    st.markdown('<div id="section-persona-graph"></div>', unsafe_allow_html=True)
     render_user_graph(user_id)
 
 

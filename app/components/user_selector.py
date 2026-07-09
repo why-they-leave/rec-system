@@ -220,8 +220,12 @@ def render_user_summary_card(
         f'title="Heavy: 학습 기간 이벤트 10건 이상 / Cold: 10건 미만(인기도 기반 추천으로 대체)">'
         f'{user_info["user_type_label"].upper()} · 로그 {user_info["log_count"]:,}건{status_part}'
         f"</div></div>"
-        f'<span class="badge badge-segment user-summary-segment">'
-        f'세그먼트 {user_info["persona_pct"]:.1f}%</span>'
+        # "세그먼트 30.1%"는 30.1%가 무엇에 대한 비율인지 안 드러난다는 피드백(요청
+        # 반영: "이것도 의미적으로 안와닿아") — "전체 고객 중 N%"로 바꿔 이 페르소나가
+        # 전체 고객에서 차지하는 비중임을 문구 자체에서 알 수 있게 한다.
+        f'<span class="badge badge-segment user-summary-segment" '
+        f'title="이 페르소나에 속한 고객이 전체 고객 중 차지하는 비율입니다.">'
+        f'전체 고객 중 {user_info["persona_pct"]:.1f}%</span>'
         f"</div>"
         f"</div>"
         f"</div>",

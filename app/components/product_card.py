@@ -59,6 +59,13 @@ def _icon_img_html(color: str, product_type: str, size: int) -> str:
     )
 
 
+def product_icon_html(name: str, size: int = 40) -> str:
+    """상품명만으로 카드와 동일한 색상 반영 아이콘 <img> HTML을 반환(요청 반영: 순위
+    요약 리스트에서도 카드와 같은 아이콘을 쓰고 싶어 카드 내부 헬퍼를 공개 함수로 노출).
+    """
+    return _icon_img_html(extract_color(name), extract_product_type(name), size)
+
+
 def _circle(color: str, product_type: str, size: int = 96) -> None:
     """단일 아이콘만 중앙에 표시(원형 배지 없음) — 상세 페이지 가로형 카드(render_current_product_card) 전용."""
     st.markdown(

@@ -73,6 +73,14 @@
     font-weight: 700 !important;
     color: #334155 !important;
 }
+/* 위와 같은 스타일(굵게+1rem)을 h1 바로 아래가 아닌 다른 캡션에도 재사용하고 싶을 때
+ * 쓰는 클래스(요청 반영: "카테고리 편차..."도 추천 비교 캡션처럼) — 구조적 셀렉터가
+ * 안 통하는 위치라 클래스로 직접 지정한다. */
+.caption-emphasis {
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    color: #334155 !important;
+}
 /* 이 캡션과 바로 아래 위젯("페르소나 선택" 등) 사이 간격이 좁아 붙어 보인다는
  * 피드백(요청 반영: "bigraph는~ 문장이랑 페르소나 선택 사이에 간격 늘려줘. 다른
  * 페이지도 마찬가지야") — h1 바로 다음 캡션에만 스코프가 잡혀 있어 이 구조를 쓰는
@@ -291,6 +299,20 @@
     display: flex !important;
     align-items: center !important;
 }
+/* Before/After 버튼에 help 툴팁을 추가하면서(요청 반영: "이게 뭘 의미하는지도 써줘")
+ * Streamlit이 button을 stTooltipHoverTarget/stTooltipIcon span으로 한 겹 더 감싸는데,
+ * 이 span들이 stretch 안 되고 내용 크기로 줄어들어 있어(flex-grow:0) 그 안의 button도
+ * 같이 쪼그라들며 "After" 필이 작은 동그라미로 보였다(요청으로 재현·확인: "그 전 디자인이
+ * 더 나아") — 이 중간 래퍼들도 같이 폭을 채우게 한다. */
+/* stTooltipIcon과 실제 button 사이에 data-testid 없는 이름 없는 div가 하나 더 있어
+ * (Streamlit emotion-cache 자동생성 클래스라 이름이 안정적이지 않음) 저 두 testid만
+ * 짚어서는 부족했다(요청으로 재확인, 여전히 안 늘어남) — stButton 안의 모든 후손을
+ * 통째로 width:100%로 편다. */
+[data-testid="stElementContainer"]:has(.twiddler-toggle-marker)
+    + [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"]
+    [data-testid="stButton"] * {
+    width: 100% !important;
+}
 [data-testid="stElementContainer"]:has(.twiddler-toggle-marker)
     + [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] button {
     border-radius: 999px !important;
@@ -300,6 +322,11 @@
     font-weight: 800 !important;
     height: 2.125rem !important;
     min-height: 0 !important;
+    /* stButton 부모를 display:flex로 만든 게(바로 위 규칙) 세로 중앙정렬은 고쳤지만,
+     * flex item인 button이 가로로는 내용 크기만큼만 줄어들어(shrink-to-fit) "After"
+     * 필이 작은 동그라미처럼 보였다(요청 반영: "그 전 디자인이 더 나아" — 이전엔 필
+     * 전체를 채웠었는데 회귀됨) — width:100%로 다시 꽉 채운다. */
+    width: 100% !important;
     padding: 0 !important;
     display: flex !important;
     align-items: center !important;
@@ -338,6 +365,14 @@
 [class*="st-key-rerank_model_lgcn_btn"] button p {
     font-weight: 700 !important;
 }
+/* Before/After 토글과 한 줄에 나란히 놓이면서(요청 반영: "한줄로 들어가되 색을 좀
+ * 다른 색으로") 둘 다 인디고라 구분이 안 됐다 — 모델 토글은 티얼 계열로 바꿔
+ * 시각적으로 다른 컨트롤 그룹임을 표시한다. */
+[class*="st-key-rerank_model_als_btn"] button[kind="primary"],
+[class*="st-key-rerank_model_lgcn_btn"] button[kind="primary"] {
+    background-color: #0d9488 !important;
+    border-color: #0d9488 !important;
+}
 
 /* ===== 배지 ===== */
 .badge {
@@ -352,6 +387,73 @@
 .badge-up      { background: #ecfdf5; color: #16a34a; }
 .badge-down    { background: #fff1f2; color: #dc2626; }
 .badge-same    { background: #f3f4f6; color: #6b7280; }
+
+/* ===== 순위 요약 리스트 (카드 그리드 위, 요청 반영: "카드 그리드 위에 요약 리스트
+ * 추가로") — 카드 안 순위 배지가 작고 안 띄어서 순위 변화를 알아채기 어렵다는
+ * 피드백에서 시작된 기능. 사진 카드보다 압축된 한 줄짜리 리스트로 순위·순위변동만
+ * 먼저 보여준다. */
+.rank-summary-panel {
+    background: #f8fafc;
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius);
+    padding: 6px 14px;
+    margin-bottom: 12px;
+}
+.rank-summary-row {
+    /* 행 높이가 크다는 피드백으로(요청 반영: "높이 줄여줘 크기 좀 작게") padding·
+     * 아이콘·글자 크기를 전체적으로 줄인다(아이콘 자체 크기는 Python 호출부의
+     * product_icon_html(size=26)에서 같이 줄임). */
+    display: grid;
+    grid-template-columns: 22px 26px minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0;
+}
+.rank-summary-row + .rank-summary-row {
+    border-top: 1px solid #e2e8f0;
+}
+.rank-summary-rank {
+    color: #4338ca;
+    font-size: 0.85rem;
+    font-weight: 800;
+    text-align: center;
+}
+.rank-summary-copy {
+    min-width: 0;
+}
+.rank-summary-copy strong {
+    display: block;
+    color: #0f172a;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.rank-summary-copy span {
+    display: block;
+    color: var(--text-meta);
+    font-size: 0.66rem;
+}
+.rank-summary-panel em {
+    color: #6366f1;
+    font-size: 0.74rem;
+    font-style: normal;
+    font-weight: 800;
+    white-space: nowrap;
+}
+/* 순위변동은 이 리스트에서 가장 눈에 띄어야 하는 요소라(요청 반영: "순위가 바뀐게
+ * 어떻다는건지 잘 안와닿는 느낌") 색+굵기를 가장 강하게 준다. */
+.rank-summary-delta {
+    font-size: 0.78rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+.rank-summary-delta-up   { color: #16a34a; }
+.rank-summary-delta-down { color: #dc2626; }
+.rank-summary-delta-same { color: #94a3b8; }
+.rank-summary-delta-new  { color: #4338ca; }
 .badge-new     { background: #eff6ff; color: #2563eb; }
 .badge-segment { background: #dbeafe; color: #1d4ed8; font-size: 0.72rem; white-space: nowrap; }
 
@@ -465,11 +567,30 @@
  * 좌측정렬 + 검정 + 보통 굵기로 통일(요청 반영).
  */
 .section-label {
-    font-size: 0.875rem;
-    font-weight: 400;
+    /* 페이지 제목(h1, 1.8rem)과 같은 크기로(요청 반영: "얘도 추천 비교랑 글씨 크기
+     * 맞춰" — 이전엔 "추천비교보다 하나 작은 글씨 크기로"였다가 이번에 요청이 바뀜).
+     * 굵기는 400이면 밋밋해 보여 700으로 같이 올린다. */
+    font-size: 1.8rem;
+    font-weight: 700;
     color: #1a1a1a;
     text-align: left;
+    /* 바로 위 유저 박스(user-summary-card)와 붙어 보인다는 피드백으로(요청 반영)
+     * 전역 세로 gap(0.85rem)에 여백을 더한다. 이 클래스는 "Twiddler 재랭킹 근거"
+     * 헤딩에만 쓰여서(.intro-section-label과는 별개 클래스) 다른 곳엔 영향 없다. */
+    margin-top: 0.75rem;
     margin-bottom: 4px;
+}
+/* .section-label 바로 아래 붙는 한 줄 설명("ALS와 LightGCN bipartite 중..." 등) —
+ * st.caption + markdown **bold**는 font-weight 600까지만 올라가고 기본 캡션
+ * 크기(0.875rem)에 묻혀 잘 안 보였다(요청 반영: "볼드처리", "글씨체 크기도 다른곳이랑
+ * 통일") — 페이지 상단 캡션(.stCaptionContainer h1 인접 규칙)과 같은 1rem/700으로
+ * 맞춘다.
+ */
+.section-caption {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #334155;
+    margin-bottom: 8px;
 }
 
 /* ===== Twiddler 재랭킹 근거 카드 (alpha/decay/선호 카테고리) =====
@@ -718,6 +839,52 @@
 [class*="st-key-rerank_detail_page_"] button[kind="primary"] p {
     color: #0f172a !important;
     font-weight: 700 !important;
+}
+
+/* ===== 사이드바 앵커 메뉴 (요청 반영: "효과 해석도 사이드바 목차") =====
+ * "효과 해석"은 한 페이지 안에서 스크롤만 이동하면 되므로 st.button 대신 plain
+ * <a href="#id">를 쓴다(rerun 없이 브라우저 네이티브 스크롤) — 위 project_page_/
+ * rerank_page_ 리스트와 같은 톤(패딩/글씨크기/hover)으로 맞추되, 선택 상태 표시는
+ * 없다(어떤 섹션을 보고 있는지 JS 스크롤 감지 없이는 알 수 없어서 이번 범위에서는
+ * 생략 — 필요해지면 IntersectionObserver로 추가).
+ */
+.sidebar-anchor-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    margin-bottom: 0.5rem;
+}
+.sidebar-anchor-menu a {
+    display: block;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    color: #64748b;
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: color 0.15s ease, background-color 0.15s ease;
+}
+.sidebar-anchor-menu a:hover {
+    color: #0f172a;
+    background: #ffffff;
+}
+/* 현재 스크롤 위치의 섹션(요청 반영: "다른 사이드바랑 똑같이 맞춰줘야지") — 다른
+ * 메뉴의 선택된 항목과 같은 흰 박스 + 가장자리까지 꽉 채우는 처리를 그대로 맞춘다
+ * (JS는 main.py의 IntersectionObserver 스크립트가 .active를 토글). */
+.sidebar-anchor-menu a.active {
+    color: #0f172a;
+    font-weight: 700;
+    background: #ffffff;
+    margin-left: -20px;
+    margin-right: -20px;
+    width: calc(100% + 40px);
+    padding-left: 20px;
+    padding-right: 20px;
+}
+/* 앵커로 스크롤했을 때 표식 div가 화면 맨 위 끝에 딱 붙어 여유가 없어 보이지 않게
+ * 살짝 위 여백을 준다. */
+[id^="section-persona-"] {
+    scroll-margin-top: 12px;
 }
 
 /* ===== 상단 네비게이션 바 (요청 반영: 박스/카드 배경 없이 플레인 + 링크만 필 hover) =====
@@ -1098,11 +1265,20 @@
     justify-content: space-between;
     min-height: 280px;
 }
-.intro-demo-kicker,
-.intro-section-label {
+.intro-demo-kicker {
     color: #4338ca;
     font-size: 0.76rem;
     font-weight: 800;
+    margin-bottom: 8px;
+}
+/* "데모에서 볼 포인트" — 다른 페이지의 섹션 라벨(.section-label, "Twiddler 재랭킹
+ * 근거" 등, 1.4rem/700)과 크기를 맞춘다(요청 반영: "데모 소개 페이지 글씨 크기
+ * 다른 페이지들이랑 형식 맞추줘" — 섹션 라벨만 범위로 확인). 색은 이 페이지 톤
+ * (인디고)을 유지해 완전히 다른 페이지 색으로 바꾸진 않는다. */
+.intro-section-label {
+    color: #4338ca;
+    font-size: 1.4rem;
+    font-weight: 700;
     margin-bottom: 8px;
 }
 .intro-demo-copy h2 {
@@ -1404,4 +1580,67 @@
     padding: 1px 5px;
     border-radius: 4px;
     font-size: 0.8rem;
+}
+
+/* ===== 오프라인 지표 해석 캡션 (HR@K 변화 등) =====
+ * st.caption 하나에 "제목: K=5 ▲.., K=10 ▼.. — 결론"을 다 이어붙였더니 글씨도 작고
+ * 가독성이 떨어진다는 피드백(요청 반영: "가독성 떨어져") — 제목/K별 변화 칩/결론
+ * 3줄로 나누고, 글씨 크기를 키우고 회색+볼드로 톤을 통일한다(요청 반영: "글씨체 크기
+ * 좀 더키워", "글씨색 회색으로 바꾸고 볼드처리"). K별 변화는 방향에 따라 배지 색을
+ * 다르게 줘서(개선=초록/악화=빨강/변화없음=회색) 숫자를 안 읽어도 방향이 보이게 한다.
+ */
+.metric-headline {
+    margin: 4px 0 12px;
+}
+.metric-headline-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #475569;
+    margin-bottom: 8px;
+}
+.metric-headline-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.metric-headline-chip {
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+}
+.metric-headline-chip-up {
+    background: #ecfdf5;
+    color: #16a34a;
+}
+.metric-headline-chip-down {
+    background: #fff1f2;
+    color: #dc2626;
+}
+.metric-headline-chip-flat {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+.metric-headline-verdict {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #475569;
+}
+
+/* ===== 버튼 help 툴팁 (Before/After, 새로고침 시뮬레이션 등) =====
+ * Streamlit 기본 툴팁이 흰 배경에 얇은 테두리뿐이라 밋밋/투박해 보인다는 피드백
+ * (요청 반영: "못생김") — 어두운 배경 + 흰 글씨 + 둥근 모서리로 흔한 모던 툴팁
+ * 톤으로 바꾼다.
+ */
+[data-testid="stTooltipContent"] {
+    background: #1e293b !important;
+    border-radius: 8px !important;
+    padding: 8px 12px !important;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25) !important;
+}
+[data-testid="stTooltipContent"] p {
+    color: #f1f5f9 !important;
+    font-size: 0.82rem !important;
+    line-height: 1.5 !important;
 }

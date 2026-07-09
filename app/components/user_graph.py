@@ -128,7 +128,10 @@ _LEGEND_ITEMS: list[tuple[str, str, str]] = [
     ("●", _COLOR_USER, "유저 (중심)"),
     ("●", _COLOR_PRODUCT_PURCHASED, "구매 상품"),
     ("●", _COLOR_PRODUCT_VIEWED, "조회/장바구니 상품"),
-    ("●", _COLOR_PRODUCT_HOP2, "세그먼트 연관 인기 상품 (2홉)"),
+    # "인기 상품 (2홉)"은 실제로는 lift 상위 상품(graph_service.py의 HOP2_MAX_PRODUCTS_PER_SEGMENT
+    # 주석 참고 — 전체 평균 대비 이 세그먼트에서 유독 도드라지는 상품)인데 "인기"·"홉"이라는
+    # 표현이 의미를 못 담아 안 와닿는다는 피드백(요청 반영) — 인과관계가 드러나는 문구로 교체.
+    ("●", _COLOR_PRODUCT_HOP2, "같은 페르소나 유저들이 특히 많이 사는 상품"),
     ("◆", _COLOR_SEGMENT, "연관 세그먼트"),
     ("◆", _COLOR_SEGMENT_OWN, "유저 본인 세그먼트"),
 ]
@@ -145,7 +148,11 @@ _LEGEND_HTML = f"""
   {_LEGEND_ROWS_HTML}
   <hr style="margin:0.6rem 0; border-color:#e2e8f0;">
   <div style="font-size:0.9em; color:#475569; line-height:1.6;">
-    실선(굵음) = 구매<br>점선 = 조회 등<br>세그먼트 엣지 굵기/라벨(lift) = 연관 강도(클수록 강함)
+    실선(굵음) = 구매<br>점선 = 조회 등<br>
+    세그먼트 엣지 굵기·<span
+      title="숫자가 클수록 이 세그먼트에서 유독 두드러지게 연관된다는 뜻입니다. 1이면 평균과 같은 수준이고, 1보다 크면 평균보다 더 강하게 연관됩니다."
+      style="text-decoration:underline dotted; cursor:help;"
+    >lift 값</span> = 연관 강도(클수록 강함, 마우스를 올리면 자세한 설명이 나옵니다)
   </div>
 </div>
 """
@@ -317,6 +324,19 @@ def _patch_iframe_background(html: str) -> str:
         margin: 0 !important;
       }}
       #mynetwork {{ border: 1px solid #e2e8f0 !important; }}
+      /* vis.js 기본 툴팁(.vis-tooltip)이 브라우저 기본 스타일 그대로라 안 예쁘다는
+         피드백(요청 반영: "그래프에 마우스 올렸을 때 뜨는 툴팁 별로임") — 카드 톤에
+         맞춰 흰 배경 + 둥근 모서리 + 그림자로 다시 스타일링한다. */
+      div.vis-tooltip {{
+        background-color: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 8px !important;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12) !important;
+        padding: 6px 10px !important;
+        font-family: inherit !important;
+        font-size: 0.82rem !important;
+        color: #1e293b !important;
+      }}
     </style>
     """
     return html.replace("</head>", f"{override}</head>")
@@ -325,9 +345,15 @@ def _patch_iframe_background(html: str) -> str:
 def render_user_graph(user_id: int) -> None:
     """유저 중심 추천 근거 서브그래프(유저→상품→세그먼트)를 pyvis로 렌더링."""
     st.markdown("#### 추천 근거 그래프")
+    # message(예: "상호작용/연관 상품이 많아 일부만 표시했습니다")는 hops를 알아야
+    # 계산되는 get_user_subgraph 호출 뒤에나 나오는데, 헤딩 바로 밑에 보이게 하려면
+    # (요청 반영) 자리부터 예약해두고 나중에 채운다 — Streamlit은 위에서 아래로
+    # 렌더링 순서가 코드 실행 순서를 따르므로 placeholder 없이는 순서를 못 바꾼다.
+    message_slot = st.empty()
 
     show_hop2 = st.toggle(
-        "2홉까지 보기 (같은 세그먼트의 다른 인기 상품 포함)",
+        # 범례와 같은 이유로 "홉"·"인기" 대신 인과관계가 드러나는 문구로(요청 반영).
+        "같은 페르소나 유저들이 많이 사는 상품까지 보기",
         key=f"graph_hops_toggle_{user_id}",
     )
     hops = 2 if show_hop2 else 1
@@ -342,6 +368,10 @@ def render_user_graph(user_id: int) -> None:
         st.info(message or "이 유저는 상호작용 데이터가 없어 그래프를 표시할 수 없습니다.")
         return
 
+    if message:
+        # 앞 ℹ️ 이모지는 빼고 볼드 처리(요청 반영).
+        message_slot.caption(f"**{message}**")
+
     products_df = load_products()
     net = _build_network(graph, products_df)
     html = net.generate_html(notebook=False)
@@ -353,6 +383,3 @@ def render_user_graph(user_id: int) -> None:
         st.iframe(html, height=_IFRAME_HEIGHT_PX)
     with legend_col:
         st.markdown(_LEGEND_HTML, unsafe_allow_html=True)
-
-    if message:
-        st.caption(f"ℹ️ {message}")
