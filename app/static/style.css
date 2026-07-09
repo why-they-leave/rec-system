@@ -193,6 +193,13 @@
     height: auto;
     object-fit: contain;
 }
+/* 미리보기 칸 자체는 버튼과 높이(2.5rem)가 이미 같았는데도 버튼보다 8px 아래로
+ * 처져 보였다 — 원인은 Streamlit이 이 markdown 칸을 감싼 stColumn에만
+ * margin-top: 8px를 붙이고(버튼 쪽 stColumn은 0px) 있었기 때문(Playwright로 실제
+ * DOM의 computed style 찍어서 확인). 그 stColumn만 :has()로 정확히 짚어 0으로 되돌린다. */
+[data-testid="stColumn"]:has(.related-preview-row) {
+    margin-top: 0 !important;
+}
 
 /* "같이 구매한 상품 ›" 버튼 — 상품명(.product-name, 0.8rem)과 비슷한 크기로 줄인다
  * (요청 반영: 기본 버튼 글씨가 상품명보다 커서 위계가 뒤집혀 보였음). 키가
@@ -205,6 +212,23 @@
     font-size: 0.8rem !important;
     font-weight: 500 !important;
     white-space: nowrap !important;
+}
+/* 버튼 자체 높이가 옆 미리보기 칸(.related-preview-cell, 2.5rem)과 안 맞아 두 줄이
+ * 어긋나 보였다(요청으로 발견) — 버튼과 그 바깥 wrapper(stButton) 모두 같은 높이로
+ * 고정하고 내부에서 세로 중앙 정렬한다. */
+[class*="st-key-detail_"] {
+    height: 2.5rem !important;
+    display: flex !important;
+    align-items: center !important;
+}
+[class*="st-key-detail_"] button {
+    height: 2.5rem !important;
+    min-height: 2.5rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
 }
 
 /* ===== 배지 ===== */
