@@ -42,7 +42,11 @@ logger = logging.getLogger(__name__)
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 ALS_OUTPUT_DIR = ROOT_DIR / "data" / "outputs" / "ALS"
+LIGHTGCN_OUTPUT_DIR = ROOT_DIR / "data" / "outputs" / "LightGCN"
 EVAL_OUTPUT_DIR = ROOT_DIR / "data" / "outputs" / "eval"
+
+MAIN_CONTEXT_LABEL = "main"
+LIGHTGCN_BIPARTITE_CONTEXT_LABEL = "main_lightgcn_bipartite"
 
 K_LIST_MAIN = [5, 10, 20]
 K_LIST_DETAIL = [1, 3, 5]
@@ -87,10 +91,19 @@ def _diversity_metrics(rounds: list[list[int]], k: int, category_map: dict) -> d
 
 # ── 메인(ALS) ────────────────────────────────────────────────────────────────
 
-def _load_main_context() -> dict:
-    """PRED_MAIN_RECOMMEND.csv/als_test.csv 기반 평가 컨텍스트 로드."""
-    recs_df = pd.read_csv(ALS_OUTPUT_DIR / "PRED_MAIN_RECOMMEND.csv")
-    test_df = pd.read_csv(ALS_OUTPUT_DIR / "als_test.csv")
+def _load_main_context(
+    output_dir: Path = ALS_OUTPUT_DIR,
+    rec_filename: str = "PRED_MAIN_RECOMMEND.csv",
+    test_filename: str = "als_test.csv",
+) -> dict:
+    """PRED_MAIN_RECOMMEND.csv/정답셋 기반 평가 컨텍스트 로드.
+
+    ALS(기본값)와 LightGCN-bipartite 양쪽에서 재사용한다 — 두 모델 다 [user_id, item_id,
+    score, rank] 스키마의 precomputed 추천 결과 + [user_id, item_id] 정답셋이라는 동일한
+    형태를 공유하므로 파일 경로만 바꿔 호출하면 된다.
+    """
+    recs_df = pd.read_csv(output_dir / rec_filename)
+    test_df = pd.read_csv(output_dir / test_filename)
     ground_truth = test_df.groupby("user_id")["item_id"].apply(set).to_dict()
     eval_users = list(ground_truth.keys())
     category_map = catalog_service.get_category_map()
@@ -121,10 +134,11 @@ def _apply_current_twiddler_main(candidates: list[dict], uid: int, k: int, categ
     return [it["item_id"] for it in reranked]
 
 
-def _main_accuracy_rows(ctx: dict) -> list[dict]:
-    """단일 세션(1회 추천) 정확도: baseline(ALS only) vs twiddler(ALS+Twiddler).
+def _main_accuracy_rows(ctx: dict, context_label: str = MAIN_CONTEXT_LABEL) -> list[dict]:
+    """단일 세션(1회 추천) 정확도: baseline(모델 only) vs twiddler(모델+Twiddler).
 
     유저별 지표를 "ALL"과 그 유저의 세그먼트 버킷 양쪽에 동시 적립(세그먼트 breakdown).
+    context_label로 ALS("main")/LightGCN-bipartite("main_lightgcn_bipartite") 결과를 구분한다.
     """
     rows = []
     for k in K_LIST_MAIN:
@@ -150,11 +164,11 @@ def _main_accuracy_rows(ctx: dict) -> list[dict]:
                     b["NDCG"].append(ndcg)
             for segment, b in buckets.items():
                 rows.append({
-                    "context": "main", "condition": condition, "k": k, "segment": segment,
+                    "context": context_label, "condition": condition, "k": k, "segment": segment,
                     "HR": round(np.mean(b["HR"]), 4), "Recall": round(np.mean(b["Recall"]), 4),
                     "NDCG": round(np.mean(b["NDCG"]), 4), "eval_users": len(b["HR"]),
                 })
-    logger.info("[메인] 정확도 계산 완료 (%s행, 세그먼트 breakdown 포함)", len(rows))
+    logger.info("[메인:%s] 정확도 계산 완료 (%s행, 세그먼트 breakdown 포함)", context_label, len(rows))
     return rows
 
 
@@ -185,7 +199,7 @@ def _simulate_main_sessions(
     return sessions
 
 
-def _main_diversity_rows(ctx: dict) -> list[dict]:
+def _main_diversity_rows(ctx: dict, context_label: str = MAIN_CONTEXT_LABEL) -> list[dict]:
     """반복 새로고침(T_ROUNDS회) 다양성: baseline vs twiddler (세그먼트 breakdown 포함)."""
     rows = []
     for k in K_LIST_MAIN:
@@ -207,14 +221,14 @@ def _main_diversity_rows(ctx: dict) -> list[dict]:
                         b[key].append(m[key])
             for segment, b in buckets.items():
                 rows.append({
-                    "context": "main", "condition": condition, "k": k, "segment": segment,
+                    "context": context_label, "condition": condition, "k": k, "segment": segment,
                     "repetition_rate": round(np.mean(b["repetition_rate"]), 4),
                     "unique_item_ratio": round(np.mean(b["unique_item_ratio"]), 4),
                     "categories_first": round(np.mean(b["categories_first"]), 2),
                     "categories_cumulative": round(np.mean(b["categories_cumulative"]), 2),
                     "n_users": len(b["repetition_rate"]),
                 })
-    logger.info("[메인] 다양성 계산 완료 (%s행, 세그먼트 breakdown 포함)", len(rows))
+    logger.info("[메인:%s] 다양성 계산 완료 (%s행, 세그먼트 breakdown 포함)", context_label, len(rows))
     return rows
 
 
@@ -362,19 +376,57 @@ def _detail_diversity_rows(ctx: dict) -> list[dict]:
     return rows
 
 
+def _existing_rows_for_context(existing_path: Path, context_label: str) -> list[dict]:
+    """이미 저장된 CSV에서 특정 context 행만 골라낸다(재계산 불가능한 컨텍스트 보존용)."""
+    if not existing_path.exists():
+        return []
+    df = pd.read_csv(existing_path)
+    return df[df["context"] == context_label].to_dict("records")
+
+
 def main() -> None:
+    """ALS/보완재/LightGCN-bipartite 세 컨텍스트를 계산해 population/세그먼트 breakdown CSV로 저장한다.
+
+    ALS·보완재 원본 데이터(data/outputs/ALS/*, df_integrated_logs.csv 등)는 gitignore
+    대상이라 로컬에 없을 수 있다 — 그 경우 새로 계산하지 않고 기존에 저장된 CSV의 해당
+    context 행을 그대로 보존한다(재계산 가능한 LightGCN-bipartite만 갱신).
+    """
     np.random.seed(42)
     EVAL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-    logger.info("===== Twiddler 오프라인 평가 시작 =====")
-    main_ctx = _load_main_context()
-    detail_ctx = _load_detail_context()
-
-    accuracy_rows = _main_accuracy_rows(main_ctx) + _detail_accuracy_rows(detail_ctx)
-    diversity_rows = _main_diversity_rows(main_ctx) + _detail_diversity_rows(detail_ctx)
-
     accuracy_path = EVAL_OUTPUT_DIR / "twiddler_accuracy.csv"
     diversity_path = EVAL_OUTPUT_DIR / "twiddler_diversity.csv"
+
+    logger.info("===== Twiddler 오프라인 평가 시작 =====")
+
+    accuracy_rows: list[dict] = []
+    diversity_rows: list[dict] = []
+
+    try:
+        main_ctx = _load_main_context()
+        accuracy_rows += _main_accuracy_rows(main_ctx, MAIN_CONTEXT_LABEL)
+        diversity_rows += _main_diversity_rows(main_ctx, MAIN_CONTEXT_LABEL)
+    except FileNotFoundError as e:
+        logger.warning("[메인:ALS] 원본 파일 없음(%s) — 기존 CSV의 'main' 행을 보존한다.", e)
+        accuracy_rows += _existing_rows_for_context(accuracy_path, MAIN_CONTEXT_LABEL)
+        diversity_rows += _existing_rows_for_context(diversity_path, MAIN_CONTEXT_LABEL)
+
+    try:
+        detail_ctx = _load_detail_context()
+        accuracy_rows += _detail_accuracy_rows(detail_ctx)
+        diversity_rows += _detail_diversity_rows(detail_ctx)
+    except FileNotFoundError as e:
+        logger.warning("[상세] 원본 파일 없음(%s) — 기존 CSV의 'detail' 행을 보존한다.", e)
+        accuracy_rows += _existing_rows_for_context(accuracy_path, "detail")
+        diversity_rows += _existing_rows_for_context(diversity_path, "detail")
+
+    lightgcn_ctx = _load_main_context(
+        output_dir=LIGHTGCN_OUTPUT_DIR,
+        rec_filename="PRED_MAIN_RECOMMEND.csv",
+        test_filename="lightgcn_test.csv",
+    )
+    accuracy_rows += _main_accuracy_rows(lightgcn_ctx, LIGHTGCN_BIPARTITE_CONTEXT_LABEL)
+    diversity_rows += _main_diversity_rows(lightgcn_ctx, LIGHTGCN_BIPARTITE_CONTEXT_LABEL)
+
     pd.DataFrame(accuracy_rows).to_csv(accuracy_path, index=False)
     pd.DataFrame(diversity_rows).to_csv(diversity_path, index=False)
     logger.info("[저장] %s", accuracy_path)
