@@ -558,10 +558,12 @@
 /* 프로젝트 소개 하위 메뉴 — "☰ 카테고리 필터"와 같은 plain 리스트 톤으로 맞춤(요청
  * 반영: 늘 펼쳐진 expander 체브론/박스 + 기본 버튼 세로 gap이 붕 떠 보여 부자연스럽다는
  * 피드백). container(key="project_menu")로 감싼 블록만 좁혀 잡는다. */
-[class*="st-key-project_menu"] [data-testid="stVerticalBlock"] {
+[class*="st-key-project_menu"] [data-testid="stVerticalBlock"],
+[class*="st-key-rerank_menu"] [data-testid="stVerticalBlock"] {
     gap: 0.1rem !important;
 }
-[class*="st-key-project_page_"] button {
+[class*="st-key-project_page_"] button,
+[class*="st-key-rerank_page_"] button {
     background: transparent !important;
     border: none !important;
     border-left: 2px solid transparent !important;
@@ -576,56 +578,23 @@
     font-weight: 500 !important;
     transition: color 0.15s ease, border-color 0.15s ease;
 }
-[class*="st-key-project_page_"] button:hover {
+[class*="st-key-project_page_"] button:hover,
+[class*="st-key-rerank_page_"] button:hover {
     color: #0f172a !important;
 }
-[class*="st-key-project_page_"] button p {
+[class*="st-key-project_page_"] button p,
+[class*="st-key-rerank_page_"] button p {
     font-size: 0.9rem !important;
     line-height: 1.35 !important;
 }
-[class*="st-key-project_page_"] button[kind="primary"] {
+[class*="st-key-project_page_"] button[kind="primary"],
+[class*="st-key-rerank_page_"] button[kind="primary"] {
     border-left-color: #6366f1 !important;
 }
 [class*="st-key-project_page_"] button[kind="primary"],
-[class*="st-key-project_page_"] button[kind="primary"] p {
-    color: #0f172a !important;
-    font-weight: 700 !important;
-}
-
-/* ===== 사이드바 "모델 선택" (ALS/LightGCN bipartite) — "프로젝트 안내"와 같은 톤 =====
- * 본문에서 자리를 차지하던 좌우 버튼 2개를 사이드바로 옮기면서(요청 반영), 같은
- * container(key=)+버튼 키 접두사 패턴을 재사용해 좁은 세로 gap과 좌측 강조선 스타일을
- * 그대로 물려받는다. */
-[class*="st-key-model_select_menu"] [data-testid="stVerticalBlock"] {
-    gap: 0.1rem !important;
-}
-[class*="st-key-rerank_model_"] button {
-    background: transparent !important;
-    border: none !important;
-    border-left: 2px solid transparent !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    justify-content: flex-start !important;
-    padding: 0.3rem 0 0.3rem 0.6rem !important;
-    min-height: 1.75rem !important;
-    height: auto !important;
-    color: #64748b !important;
-    font-size: 0.9rem !important;
-    font-weight: 500 !important;
-    transition: color 0.15s ease, border-color 0.15s ease;
-}
-[class*="st-key-rerank_model_"] button:hover {
-    color: #0f172a !important;
-}
-[class*="st-key-rerank_model_"] button p {
-    font-size: 0.9rem !important;
-    line-height: 1.35 !important;
-}
-[class*="st-key-rerank_model_"] button[kind="primary"] {
-    border-left-color: #6366f1 !important;
-}
-[class*="st-key-rerank_model_"] button[kind="primary"],
-[class*="st-key-rerank_model_"] button[kind="primary"] p {
+[class*="st-key-project_page_"] button[kind="primary"] p,
+[class*="st-key-rerank_page_"] button[kind="primary"],
+[class*="st-key-rerank_page_"] button[kind="primary"] p {
     color: #0f172a !important;
     font-weight: 700 !important;
 }

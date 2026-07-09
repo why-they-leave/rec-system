@@ -76,7 +76,7 @@ def render_user_list(demo_users_df: pd.DataFrame) -> None:
     selected_rows = event.selection.rows if event and event.selection else []
     if selected_rows:
         picked_user_id = int(filtered.iloc[selected_rows[0]]["user_id"])
-        st.success(f"User {picked_user_id:05d} 선택됨. Twiddler 재랭킹 화면으로 이동합니다.")
+        st.success(f"User {picked_user_id:05d} 선택됨. 추천 비교 화면으로 이동합니다.")
         st.session_state["selected_persona"] = filtered.iloc[selected_rows[0]]["persona_label"]
         st.session_state[f"selected_user__{st.session_state['selected_persona']}"] = picked_user_id
         st.session_state["selected_user"] = picked_user_id

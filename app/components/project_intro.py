@@ -53,7 +53,7 @@ def _render_preview_products() -> str:
 
 
 def render_project_intro() -> None:
-    st.title("프로젝트 소개")
+    st.title("데모 안내")
     st.caption(
         "추천 결과를 직접 체험하며 재랭킹, 보완재 추천, 페르소나 해석을 확인하는 데모사이트입니다."
     )

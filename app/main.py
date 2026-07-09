@@ -49,6 +49,7 @@ from components.team_page import render_team_page  # noqa: E402
 from components.user_graph import render_user_graph  # noqa: E402
 from components.user_list import render_user_list  # noqa: E402
 from components.user_selector import (  # noqa: E402
+    get_current_user_selection,
     render_persona_and_user_selector,
     render_user_summary_card,
 )
@@ -115,17 +116,14 @@ def _render_top_navbar() -> None:
             unsafe_allow_html=True,
         )
 
-    # ── 탭 버튼 — 참고 이미지(쇼핑몰 상단 텍스트 링크 메뉴)처럼 박스형 버튼 대신
-    # 필(pill) 카드로 감싼 텍스트 링크(요청 반영) — 마커로 이 네비바의 stHorizontalBlock만
-    # 정확히 짚어 CSS로 버튼 테두리/배경을 지운다(:has() 전역 매칭 버그를 피하려고 직계
-    # 자식(>) + 인접 형제(+)만 사용, app/static/style.css의 .topnav-marker 관련 규칙 참고).
+    # ── 탭 버튼 — 기능명보다 데모 체험 순서가 먼저 보이도록 단계형 라벨을 쓴다.
     st.markdown('<div class="topnav-marker"></div>', unsafe_allow_html=True)
     col_b0, col_b1, col_b2, col_b3, col_spacer = st.columns(
-        [0.9, 0.9, 0.9, 0.7, 3], vertical_alignment="bottom"
+        [0.8, 0.85, 0.85, 0.7, 3], vertical_alignment="bottom"
     )
     with col_b0:
         if st.button(
-            "프로젝트 소개",
+            "데모 안내",
             key="topnav_project",
             type="primary" if current_tab == "project" else "tertiary",
         ):
@@ -135,7 +133,7 @@ def _render_top_navbar() -> None:
             st.rerun()
     with col_b1:
         if st.button(
-            "Twiddler 재랭킹",
+            "추천 비교",
             key="topnav_rerank",
             type="primary" if current_tab == "rerank" else "tertiary",
         ):
@@ -143,7 +141,7 @@ def _render_top_navbar() -> None:
             st.rerun()
     with col_b2:
         if st.button(
-            "페르소나 기여도",
+            "효과 해석",
             key="topnav_persona",
             type="primary" if current_tab == "persona" else "tertiary",
         ):
@@ -165,8 +163,8 @@ def _render_top_navbar() -> None:
 def _setup_sidebar() -> tuple[list[str], set[str] | None, pd.DataFrame | None]:
     """사이드바 초기화. (선택된 카테고리 목록, demo_users_df) 반환.
 
-    탭 네비게이션은 상단바(_render_top_navbar)로 이동했고(요청 반영), 사이드바는 이제
-    카테고리 필터(연관상품 상세 화면 제외)만 담당한다.
+    탭 네비게이션은 상단바(_render_top_navbar)로 이동했고(요청 반영), 사이드바는 현재
+    화면의 보조 메뉴와 카테고리 필터를 담당한다.
     """
     load_css(str(_STATIC_DIR / "style.css"))
 
@@ -181,14 +179,14 @@ def _setup_sidebar() -> tuple[list[str], set[str] | None, pd.DataFrame | None]:
         st.sidebar.error("❌ `data/dashboard/demo_users.csv` 없음")
         demo_users = None
 
-    # ── 카테고리 필터 (메인 화면 전용) — 카테고리별 아코디언 + 하위 타입 체크박스 ──────
+    # ── 카테고리 필터 — 카테고리별 아코디언 + 하위 타입 체크박스 ─────────────────
     # 카테고리를 펼치면 그 카테고리의 상품 타입(서브카테고리)이 체크박스로 나온다.
     # 아무것도 체크 안 하면 전체(카테고리 레벨 필터만 적용 안 함, selected_types=None).
     selected_categories = ALL_CATEGORIES[:]
     selected_types: set[str] = set()
     if current_tab == "project":
         project_pages = [
-            ("프로젝트 소개", "intro"),
+            ("데모 소개", "intro"),
             ("용어 해석", "glossary"),
             ("팀 소개", "team"),
         ]
@@ -198,7 +196,7 @@ def _setup_sidebar() -> tuple[list[str], set[str] | None, pd.DataFrame | None]:
         # 버튼 사이 기본 세로 gap도 커서 부자연스럽다는 피드백(요청 반영) — 다른 사이드바
         # 섹션과 같은 plain 제목 + 촘촘한 리스트로 바꾼다(gap은 .st-key-project_menu
         # 스코프로 style.css에서 좁힌다).
-        st.sidebar.markdown("**프로젝트 안내**")
+        st.sidebar.markdown("**데모 안내**")
         with st.sidebar.container(key="project_menu"):
             for label, page_key in project_pages:
                 if st.button(
@@ -210,39 +208,46 @@ def _setup_sidebar() -> tuple[list[str], set[str] | None, pd.DataFrame | None]:
                     st.session_state["project_page"] = page_key
                     st.rerun()
     if current_tab == "rerank" and st.session_state.get("view", "main") != "detail":
-        # ALS/LightGCN bipartite 선택 버튼을 본문 상단(개별 유저 카드 아래)에서 사이드바
-        # "카테고리 필터" 위로 옮겼다(요청 반영: "카테고리 필터 위에 모델 선택으로
-        # 만들어줘") — "프로젝트 안내"와 같은 plain 세로 리스트 톤으로 통일한다.
-        st.sidebar.markdown("**모델 선택**")
-        with st.sidebar.container(key="model_select_menu"):
-            _render_rerank_model_toggle()
-    if current_tab in ("rerank", "persona") and st.session_state.get("view", "main") != "detail":
-        # 카테고리 필터 전체를 하나의 바깥 아코디언으로 감싸 접을 수 있게 한다(요청 반영).
-        # 개별 카테고리 아이콘/이모지는 그대로 두고, 바깥 아코디언 제목 앞의 "☰"만 뺀다
-        # (요청 반영). 이 Streamlit 버전은 expander 중첩을 지원한다(공식 문서는 권장하지
-        # 않는다고만 안내 — 실제 동작은 정상, 로컬에서 확인).
-        with st.sidebar.expander("카테고리 필터", expanded=True):
-            for category in ALL_CATEGORIES:
-                icon_url = category_icon_url(category)
-                header = (
-                    f"![]({icon_url}) {category}"
-                    if icon_url
-                    else f"{CATEGORY_EMOJI[category]} {category}"
-                )
-                with st.expander(header):
-                    subtypes = CATEGORY_SUBTYPES.get(category, [])
-                    all_key = f"subcat_all_{category}"
+        rerank_pages = [
+            ("> 추천 결과 비교", "compare"),
+            ("> 페르소나 및 유저 선택", "user"),
+            ("> 오프라인 성능 지표", "metrics"),
+        ]
+        current_rerank_page = st.session_state.get("rerank_page", "compare")
+        with st.sidebar.expander("추천 결과 비교", expanded=True):
+            for label, page_key in rerank_pages:
+                if st.button(
+                    label,
+                    key=f"rerank_page_{page_key}",
+                    type="primary" if current_rerank_page == page_key else "tertiary",
+                    width="stretch",
+                ):
+                    st.session_state["rerank_page"] = page_key
+                    st.rerun()
 
-                    def _toggle_all(category=category, subtypes=subtypes, all_key=all_key):
-                        checked = st.session_state[all_key]
+            if st.session_state.get("rerank_page", "compare") == "compare":
+                st.markdown("**카테고리 필터**")
+                for category in ALL_CATEGORIES:
+                    icon_url = category_icon_url(category)
+                    header = (
+                        f"![]({icon_url}) {category}"
+                        if icon_url
+                        else f"{CATEGORY_EMOJI[category]} {category}"
+                    )
+                    with st.expander(header):
+                        subtypes = CATEGORY_SUBTYPES.get(category, [])
+                        all_key = f"subcat_all_{category}"
+
+                        def _toggle_all(category=category, subtypes=subtypes, all_key=all_key):
+                            checked = st.session_state[all_key]
+                            for subtype in subtypes:
+                                st.session_state[f"subcat_{category}_{subtype}"] = checked
+
+                        st.checkbox("전체", key=all_key, on_change=_toggle_all)
+                        st.markdown("<hr style='margin:0.1rem 0 0.4rem;'>", unsafe_allow_html=True)
                         for subtype in subtypes:
-                            st.session_state[f"subcat_{category}_{subtype}"] = checked
-
-                    st.checkbox("전체", key=all_key, on_change=_toggle_all)
-                    st.markdown("<hr style='margin:0.1rem 0 0.4rem;'>", unsafe_allow_html=True)
-                    for subtype in subtypes:
-                        if st.checkbox(subtype, key=f"subcat_{category}_{subtype}"):
-                            selected_types.add(subtype)
+                            if st.checkbox(subtype, key=f"subcat_{category}_{subtype}"):
+                                selected_types.add(subtype)
         if selected_types:
             selected_categories = [
                 c
@@ -498,22 +503,29 @@ def _render_refresh_simulation_button(
 
 
 def _render_rerank_model_toggle() -> str:
-    """Twiddler 재랭킹 탭의 모델 선택 — ALS ↔ LightGCN bipartite.
+    """추천 비교 탭 상단의 모델 좌우 토글 — ALS ↔ LightGCN bipartite.
 
-    본문 상단에서 자리를 차지하던 좌우 버튼 2개를 사이드바 "카테고리 필터" 위
-    "모델 선택" 섹션으로 옮겼다(요청 반영: "카테고리 필터 위에 모델 선택으로 만들어줘").
-    사이드바의 다른 섹션(프로젝트 안내 등)과 같은 세로 리스트 버튼으로 통일한다.
     반환: 현재 선택된 모델("ALS" 또는 "LightGCN-bipartite").
     """
     current = st.session_state.get("rerank_model_type", "ALS")
-    for label, value in (("ALS", "ALS"), ("LightGCN bipartite", "LightGCN-bipartite")):
+    col_als, col_lgcn = st.columns(2)
+    with col_als:
         if st.button(
-            label,
-            key=f"rerank_model_{value}_btn",
+            "ALS",
+            key="rerank_model_als_btn",
             width="stretch",
-            type="primary" if current == value else "secondary",
+            type="primary" if current == "ALS" else "secondary",
         ):
-            st.session_state["rerank_model_type"] = value
+            st.session_state["rerank_model_type"] = "ALS"
+            st.rerun()
+    with col_lgcn:
+        if st.button(
+            "LightGCN bipartite",
+            key="rerank_model_lgcn_btn",
+            width="stretch",
+            type="primary" if current == "LightGCN-bipartite" else "secondary",
+        ):
+            st.session_state["rerank_model_type"] = "LightGCN-bipartite"
             st.rerun()
     return st.session_state.get("rerank_model_type", "ALS")
 
@@ -592,10 +604,11 @@ def _render_model_twiddler_block(
     # 개별 유저 카드는 _render_rerank_main 상단(페르소나 특성 카드 위)으로 옮겨서
     # 여기서는 중복 렌더링하지 않는다(요청 반영).
 
-    # 모델 선택 버튼은 사이드바 "모델 선택" 섹션으로 옮겼다(요청 반영: "카테고리 필터
-    # 위에 모델 선택으로 만들어줘") — 버튼 클릭은 session_state를 바꾸고 즉시
-    # st.rerun()하므로, 이 함수가 지금 어떤 model_type로 호출됐는지와 무관하게 다음
-    # rerun에서 _render_rerank_main이 새로 선택된 모델의 블록을 그린다.
+    # 모델 좌우 토글. 버튼 클릭은 session_state를 바꾸고 즉시 st.rerun()하므로,
+    # 이 함수가 지금 어떤 model_type로 호출됐는지와 무관하게 다음 rerun에서
+    # _render_rerank_main이 새로 선택된 모델의 블록을 그린다.
+    _render_rerank_model_toggle()
+    st.divider()
 
     try:
         after_df, after_status, after_message = get_main_recommendations(
@@ -623,8 +636,7 @@ def _render_model_twiddler_block(
         _apply_filters, selected_categories, selected_types
     )
 
-    # 사이드바 "모델 선택" 버튼이 이미 선택된 모델명을 보여주므로 여기서 같은 이름을
-    # 헤딩으로 또 띄우면 "ALS"가 중복으로 보인다(요청 반영: 중복 제거).
+    # 모델 토글 바로 아래라 같은 모델명을 헤딩으로 또 띄우면 "ALS"가 중복으로 보인다.
     if is_cold:
         st.caption("🧊 Cold 유저: Twiddler 미적용, 인기도 기반 추천")
     elif gate_cold_users:
@@ -692,10 +704,6 @@ def _render_model_twiddler_block(
             products_df=products_df,
         )
 
-    st.divider()
-    st.markdown(f"### 오프라인 성능 지표 ({eval_label} only vs {eval_label}+Twiddler)")
-    render_eval_metrics(context=eval_context, persona_label=user_info["persona_label"])
-
 
 def _render_rerank_main(
     selected_categories: list[str],
@@ -710,19 +718,33 @@ def _render_rerank_main(
     이관돼 있다. 이 화면에는 LightGCN bipartite(페르소나 미결합)만 ALS와 나란히 비교
     노출한다(reports/LIGHTGCN_BIPARTITE_TWIDDLER_PLAN.md).
     """
-    st.title("재랭킹하면 추천이 어떻게 달라질까")
-    st.caption(
-        "Twiddler(페르소나 기반 재랭킹)는 같은 추천 후보 안에서 순서만 바꿉니다. "
-        "탐색 다양성은 대체로 개선되고, 정확도(HR@K)는 K값에 따라 오르내릴 수 있습니다. "
-        "아래에서 실제 수치로 확인하세요."
-    )
+    rerank_page = st.session_state.get("rerank_page", "compare")
+    user_id, user_info = get_current_user_selection(demo_users_df)
 
-    # ── 유저 소개 (페르소나 선택 + 유저 선택 + 통합 카드) ──────────────────────
-    user_id, user_info = render_persona_and_user_selector(demo_users_df)
-    # 개별 유저 카드 + 페르소나 특성 카드가 같은 유저에 대한 정보인데 둘로 나뉘어
-    # 중복처럼 보인다는 피드백으로 하나로 통합했다(요청 반영). 이 시점엔 아직 모델/
-    # Twiddler phase가 안 정해졌으므로 twiddler_status는 생략(토글 버튼이 보여줌).
-    render_user_summary_card(user_id, user_info)
+    if rerank_page == "user":
+        st.title("페르소나 및 유저 선택")
+        st.caption("추천 비교에 사용할 페르소나와 데모 유저를 선택합니다.")
+        user_id, user_info = render_persona_and_user_selector(demo_users_df)
+        render_user_summary_card(user_id, user_info)
+        return
+
+    if rerank_page == "metrics":
+        st.title("오프라인 성능 지표")
+        st.caption("현재 선택된 모델과 페르소나 기준으로 Before/After 성능 지표를 확인합니다.")
+        model_choice = st.session_state.get("rerank_model_type", "ALS")
+        if model_choice == "ALS":
+            eval_context, eval_label = "main", "ALS"
+        else:
+            eval_context, eval_label = "main_lightgcn_bipartite", "LightGCN bipartite"
+        st.markdown(f"### {eval_label} only vs {eval_label}+Twiddler")
+        render_eval_metrics(context=eval_context, persona_label=user_info["persona_label"])
+        return
+
+    st.title("추천 비교")
+    st.caption(
+        f"User {user_id:05d} · {user_info['user_type_label'].upper()} · "
+        f"{user_info['persona_label']} 기준으로 Before/After 추천 순위를 비교합니다."
+    )
 
     try:
         products_df = load_products()
@@ -730,14 +752,6 @@ def _render_rerank_main(
         st.error(f"데이터를 불러올 수 없습니다: `{e}`")
         return
 
-    # Twiddler 재랭킹 근거(alpha/decay/선호 카테고리)는 페르소나 기반이라 모델과 무관 —
-    # 아래 모델별 블록보다 위에서 한 번만 보여준다.
-    render_user_twiddler_case(user_id)
-    st.divider()
-
-    # 모델 좌우 토글 버튼 자체는 _render_model_twiddler_block 안(개별 유저 카드 바로
-    # 아래)에서 그린다(요청 반영) — 여기서는 session_state에 저장된 현재 선택값만 읽어
-    # 어느 블록을 렌더링할지 정한다(버튼 클릭은 즉시 st.rerun()하므로 값 반영에 문제없음).
     model_choice = st.session_state.get("rerank_model_type", "ALS")
 
     if model_choice == "ALS":
@@ -783,7 +797,7 @@ def _render_rerank_detail(demo_users_df: pd.DataFrame) -> None:
         st.session_state["view"] = "main"
         st.rerun()
 
-    st.title("연관 상품 추천")
+    st.title("추천 비교 · 연관 상품")
 
     item_id = st.session_state.get("selected_item_id")
     if item_id is None:
@@ -890,7 +904,7 @@ def _render_persona_tab(
     (모델 학습 완료 후 별도 계획). 카드 그리드는 기존 _render_main_recommend에서
     로직 변경 없이 그대로 이관. 하단 서브그래프는 reports/USER_GRAPH_VIZ_PLAN.md 참고.
     """
-    st.title("페르소나 기여도 (bi-graph vs tri-graph)")
+    st.title("효과 해석")
     st.caption(
         "bi-graph는 유저-상품 관계만, tri-graph는 여기에 페르소나 노드를 추가로 연결해 "
         "학습합니다. 두 그래프의 추천 결과를 비교하면 페르소나 정보가 추천 정확도에 "

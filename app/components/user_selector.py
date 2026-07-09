@@ -80,7 +80,7 @@ def render_persona_and_user_selector(demo_users_df: pd.DataFrame) -> tuple[int, 
         # 프론트엔드 표시 지연 버그를 피한다. 같은 key를 재사용하면 실제 선택값(session_state)은
         # 바로 바뀌는데도 화면에 보이는 라벨 텍스트만 한 박자 늦게(다음 상호작용 때) 갱신됐다.
         selected_id = st.selectbox(
-            "👤 유저 선택",
+            "유저 선택",
             options=options,
             format_func=lambda uid: label_map[int(uid)],
             key=f"selected_user__{selected_persona}",
@@ -102,6 +102,40 @@ def render_persona_and_user_selector(demo_users_df: pd.DataFrame) -> tuple[int, 
     }
 
     return int(selected_id), user_info
+
+
+def get_current_user_selection(demo_users_df: pd.DataFrame) -> tuple[int, dict]:
+    """현재 session_state에 저장된 페르소나/유저 선택값을 렌더링 없이 반환한다.
+
+    추천 비교 화면에서 선택 UI를 별도 하위 페이지로 분리해도, 카드 비교 화면은 같은
+    선택값을 계속 참조해야 하므로 렌더링 없는 조회 함수가 필요하다.
+    """
+    personas = sorted(demo_users_df["persona_label"].unique().tolist())
+    selected_persona = st.session_state.get("selected_persona")
+    if selected_persona not in personas:
+        selected_persona = personas[0]
+        st.session_state["selected_persona"] = selected_persona
+
+    persona_users = demo_users_df[demo_users_df["persona_label"] == selected_persona]
+    options = [int(uid) for uid in persona_users["user_id"].tolist()]
+    user_key = f"selected_user__{selected_persona}"
+    selected_id = int(st.session_state.get(user_key, options[0]))
+    if selected_id not in options:
+        selected_id = options[0]
+        st.session_state[user_key] = selected_id
+    st.session_state["selected_user"] = selected_id
+
+    user_row = persona_users[persona_users["user_id"] == selected_id].iloc[0]
+    user_type_label = "Heavy" if str(user_row["user_type"]).lower() == "heavy" else "Cold"
+    meta = PERSONA_META.get(user_row["persona_label"], {"pct": 0.0, "desc": "설명 없음"})
+    user_info = {
+        "persona_label": user_row["persona_label"],
+        "user_type_label": user_type_label,
+        "log_count": int(user_row["log_count"]),
+        "persona_pct": meta["pct"],
+        "persona_desc": meta["desc"],
+    }
+    return selected_id, user_info
 
 
 def render_user_summary_card(
