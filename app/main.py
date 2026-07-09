@@ -732,7 +732,7 @@ def _render_rerank_main(
     if rerank_page == "metrics":
         st.title("오프라인 성능 지표")
         st.caption("현재 선택된 모델과 페르소나 기준으로 Before/After 성능 지표를 확인합니다.")
-        model_choice = st.session_state.get("rerank_model_type", "ALS")
+        model_choice = _render_rerank_model_toggle()
         if model_choice == "ALS":
             eval_context, eval_label = "main", "ALS"
         else:
