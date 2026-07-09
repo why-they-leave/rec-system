@@ -46,7 +46,7 @@ from components.user_selector import (
     render_persona_card,
     render_user_card,
 )
-from utils.category_emoji import CATEGORY_EMOJI
+from utils.category_emoji import CATEGORY_EMOJI, category_icon_url
 from utils.data_loader import (
     get_detail_recommendations,
     get_main_recommendations,
@@ -62,9 +62,12 @@ from src.modeling.twiddler.rerank import POOL_MULTIPLIER
 
 ALL_CATEGORIES = list(CATEGORY_EMOJI.keys())
 
-# st.pills 레이블 → 실제 카테고리명 역매핑
+# st.pills 레이블 → 실제 카테고리명 역매핑. st.pills의 options는 st.markdown 본문과 동일한
+# GFM(이미지 포함)을 지원해 `![](url)`을 아이콘처럼 렌더링한다(폰트 높이에 맞춰 자동 크기) —
+# 요청 반영: 카테고리 필터도 이모지 대신 app/static/images/categories/ 아이콘 이미지 사용.
+# "전체"는 카테고리별 이미지가 없어 태그 이모지(🏷️)를 그대로 유지한다.
 _PILL_TO_CAT: dict[str, str] = {
-    f"{CATEGORY_EMOJI[c]} {c}": c for c in ALL_CATEGORIES
+    f"![]({category_icon_url(c)}) {c}": c for c in ALL_CATEGORIES
 }
 _PILL_OPTIONS = ["🏷️ 전체"] + list(_PILL_TO_CAT.keys())
 
