@@ -20,9 +20,16 @@ from utils.product_icons import icon_color_filter, icon_data_uri, icon_slug_for
 
 # ── 레이아웃 상수 ────────────────────────────────────────────────────────
 _GRAPH_HEIGHT_PX = 600
-_IFRAME_HEIGHT_PX = _GRAPH_HEIGHT_PX + 60  # pyvis 내부 여백 감안 여유값
+# pyvis 템플릿은 빈 <h1>(heading 미사용) 이 두 번 중복 렌더돼 카드 위에 여백을 만들고,
+# 이 여백만큼 남는 <body> 영역이 #mynetwork 테두리 바깥으로 흰 배경만 튀어나와 보였다
+# (요청으로 발견 — _patch_iframe_background에서 그 <h1>들을 숨기므로 더 이상 여유값이
+# 필요 없다. 스크롤바 방지용 최소값만 남긴다).
+_IFRAME_HEIGHT_PX = _GRAPH_HEIGHT_PX + 4
 
-# ── 색상 상수 (.streamlit/config.toml 라이트 테마 고정값과 일치시킴) ─────
+# ── 색상 상수 ────────────────────────────────────────────────────────────
+# 그래프 자체 배경은 흰색 유지 — 페이지 배경(#f8fafc)과 맞추면 노드/엣지 색상 대비가
+# 떨어져 가독성이 나빠진다(요청으로 확인). 대신 iframe 안쪽(카드 wrapper/body)만
+# 이 값으로 통일해 카드 내부에서 흰색 얼룩이 지지 않게 한다(_patch_iframe_background 참고).
 _BG_COLOR = "#ffffff"
 _FONT_COLOR = "#1a1a1a"
 # config.toml primaryColor(#6366f1)는 원 배경 위에 이모지를 얹으면 배경도 이모지(👤 실루엣은
@@ -240,6 +247,30 @@ def _build_network(graph: dict, products_df: pd.DataFrame) -> Network:
     return net
 
 
+def _patch_iframe_background(html: str) -> str:
+    """pyvis 템플릿의 <body>/Bootstrap `.card`는 bgcolor 인자가 안 닿는 하드코딩된 CSS라
+    #mynetwork(그래프 본체, bgcolor 적용됨)와 그 바깥 여백의 색이 미묘하게 어긋나 보였다
+    (요청으로 발견). generate_html() 결과에 오버라이드 스타일을 주입해 iframe 안쪽을
+    _BG_COLOR로 통일하고, 옅은 테두리(#e2e8f0)로 페이지 배경과 자연스럽게 구분한다.
+    """
+    override = f"""
+    <style>
+      html, body {{ background-color: {_BG_COLOR} !important; margin: 0; }}
+      /* pyvis 템플릿이 중복 삽입하는 빈 heading — 실사용 안 하지만 여백은 차지해 카드
+         바깥으로 배경이 튀어나오는 원인이었다 */
+      center, h1 {{ display: none !important; margin: 0 !important; }}
+      div.card {{
+        background-color: {_BG_COLOR} !important;
+        border: none !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+      }}
+      #mynetwork {{ border: 1px solid #e2e8f0 !important; }}
+    </style>
+    """
+    return html.replace("</head>", f"{override}</head>")
+
+
 def render_user_graph(user_id: int) -> None:
     """유저 중심 추천 근거 서브그래프(유저→상품→세그먼트)를 pyvis로 렌더링."""
     st.markdown("#### 🕸️ 추천 근거 그래프")
@@ -263,6 +294,7 @@ def render_user_graph(user_id: int) -> None:
     products_df = load_products()
     net = _build_network(graph, products_df)
     html = net.generate_html(notebook=False)
+    html = _patch_iframe_background(html)
 
     # 범례를 그래프 우측에 고정 배치(요청 반영 — 이전엔 하단 텍스트 한 줄이라 눈에 안 띄었음).
     graph_col, legend_col = st.columns([5, 1.3])
