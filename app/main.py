@@ -191,9 +191,7 @@ def _setup_sidebar() -> tuple[list[str], set[str] | None, pd.DataFrame | None]:
                         st.session_state[f"subcat_{category}_{subtype}"] = checked
 
                 st.checkbox("전체", key=all_key, on_change=_toggle_all)
-                st.markdown(
-                    "<hr style='margin:0.1rem 0 0.4rem;'>", unsafe_allow_html=True
-                )
+                st.markdown("<hr style='margin:0.1rem 0 0.4rem;'>", unsafe_allow_html=True)
                 for subtype in subtypes:
                     if st.checkbox(subtype, key=f"subcat_{category}_{subtype}"):
                         selected_types.add(subtype)

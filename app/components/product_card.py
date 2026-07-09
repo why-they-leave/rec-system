@@ -10,7 +10,7 @@ from collections.abc import Callable
 
 import pandas as pd
 import streamlit as st
-from utils.category_emoji import category_icon_url, extract_color
+from utils.category_emoji import extract_color
 from utils.product_icons import icon_color_filter, icon_slug_for, icon_url
 
 _FALLBACK_EMOJI = "🏷️"
@@ -68,19 +68,14 @@ def _circle(color: str, product_type: str, size: int = 96) -> None:
 
 
 def _photo_panel(color: str, product_type: str, category: str, size: int = 160) -> None:
-    """사진 패널 — 아이콘을 중앙에 크게 두고, 좌상단에 카테고리 아이콘을 작은 원형 배지로
-    얹는다(참고 이미지의 "브랜드 로고 배지" 자리를 실제로 가진 데이터인 카테고리 아이콘으로
-    대체 — 요청 반영: "우리한테 있는 구성요소로").
+    """사진 패널 — 아이콘을 중앙에 크게 둔다.
+
+    좌상단 카테고리 아이콘 배지는 16px로 축소하면 실루엣이 뭉개져 알아볼 수 없다는
+    이유로 제거했다(요청 반영) — 카테고리 정보는 바로 아래 브랜드 라인 텍스트로 이미
+    표시되므로 정보 손실은 없다.
     """
-    icon_url_cat = category_icon_url(category)
-    badge_html = (
-        f'<div class="product-photo-badge"><img src="{icon_url_cat}" alt="{category}" /></div>'
-        if icon_url_cat
-        else ""
-    )
     st.markdown(
-        f'<div class="product-photo-panel">{badge_html}'
-        f"{_icon_img_html(color, product_type, size)}</div>",
+        f'<div class="product-photo-panel">{_icon_img_html(color, product_type, size)}</div>',
         unsafe_allow_html=True,
     )
 
