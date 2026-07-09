@@ -69,12 +69,25 @@ PRODUCT_TYPE_EMOJI: dict[str, str] = {
 _TRAILING_COLOR_NUMBER = re.compile(r"\s+[A-Za-z]+\s+\d+$")
 
 
+def product_type_from_name(name: str) -> str:
+    """상품명("Headphones Snow 402")에서 색상·번호를 제거해 타입만 추출(app/components/user_graph.py 공용)."""
+    return _TRAILING_COLOR_NUMBER.sub("", name).strip()
+
+
+def extract_color(name: str) -> str:
+    """상품명 뒤에서 두 번째 단어를 CSS 색상명으로 추출(예: "Headphones Snow 402" → "Snow").
+    app/components/product_card.py, app/components/user_graph.py 공용.
+    """
+    parts = name.split()
+    return parts[-2] if len(parts) >= 2 else "gray"
+
+
 def get_product_emoji(name: str, category: str | None = None) -> str:
     """상품명에서 타입 토큰을 추출해 PRODUCT_TYPE_EMOJI로 조회하고, 없으면 카테고리 이모지로 폴백한다.
 
     상품명 형식이 다르거나(타입 추출 실패) 새 타입이 추가돼 매핑에 없는 경우를 대비한 폴백.
     """
-    product_type = _TRAILING_COLOR_NUMBER.sub("", name).strip()
+    product_type = product_type_from_name(name)
     if product_type in PRODUCT_TYPE_EMOJI:
         return PRODUCT_TYPE_EMOJI[product_type]
     if category and category in CATEGORY_EMOJI:
