@@ -14,8 +14,9 @@ import base64
 import pandas as pd
 import streamlit as st
 from pyvis.network import Network
-from utils.category_emoji import get_product_emoji
+from utils.category_emoji import extract_color, get_product_emoji, product_type_from_name
 from utils.data_loader import get_user_subgraph, load_products
+from utils.product_icons import icon_color_filter, icon_data_uri, icon_slug_for
 
 # ── 레이아웃 상수 ────────────────────────────────────────────────────────
 _GRAPH_HEIGHT_PX = 600
@@ -64,7 +65,10 @@ _EMOJI_IMAGE_SIZE_PX = 96
 
 
 def _emoji_circle_image(emoji: str, bg_color: str) -> str:
-    """이모지 + 색상 원 배경을 SVG로 그려 base64 data URI로 반환."""
+    """이모지 + 색상 원 배경을 SVG로 그려 base64 data URI로 반환.
+
+    사람 노드(🧑)처럼 상품 아이콘 이미지가 없는 노드, 또는 아이콘이 없는 상품 타입의 폴백용.
+    """
     r = _EMOJI_IMAGE_SIZE_PX / 2
     svg = (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{_EMOJI_IMAGE_SIZE_PX}" '
@@ -72,6 +76,36 @@ def _emoji_circle_image(emoji: str, bg_color: str) -> str:
         f'<circle cx="{r}" cy="{r}" r="{r - 2}" fill="{bg_color}"/>'
         f'<text x="{r}" y="{r}" font-size="{r * 1.1:.0f}" text-anchor="middle" '
         f'dominant-baseline="central">{emoji}</text>'
+        "</svg>"
+    )
+    b64 = base64.b64encode(svg.encode("utf-8")).decode("ascii")
+    return f"data:image/svg+xml;base64,{b64}"
+
+
+def _icon_circle_image(icon_slug: str, bg_color: str, product_color: str | None = None) -> str:
+    """상품 타입 아이콘(PNG) + 색상 원 배경을 SVG로 그려 base64 data URI로 반환.
+
+    바깥 원(bg_color)은 그대로 유지 — 상품 자체 색상이 아니라 구매/조회/hop2 같은 노드
+    상태를 나타낸다(app/components/user_graph.py의 _COLOR_PRODUCT_* 참고). 아이콘 자체는
+    product_color가 주어지면 filter: hue-rotate()로 상품명의 색상을 반영한다(요청 반영 —
+    원은 상태색 그대로, 아이콘만 상품 색상). hue-rotate는 명도/채도를 안 건드려 아이콘
+    내부 디테일(outline/채움 대비)이 그대로 유지된다(app/components/product_card.py의
+    _circle()에서 brightness(0) 계열 필터 시도 시 디테일 소실 확인, 그래서 hue-rotate 채택).
+    """
+    r = _EMOJI_IMAGE_SIZE_PX / 2
+    plate_r = r * 0.86
+    icon_r = r * 0.8
+    icon_size = icon_r * 2
+    icon_offset = r - icon_r
+    filter_css = icon_color_filter(product_color) if product_color else ""
+    filter_attr = f' style="filter:{filter_css};"' if filter_css else ""
+    svg = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{_EMOJI_IMAGE_SIZE_PX}" '
+        f'height="{_EMOJI_IMAGE_SIZE_PX}">'
+        f'<circle cx="{r}" cy="{r}" r="{r - 2}" fill="{bg_color}"/>'
+        f'<circle cx="{r}" cy="{r}" r="{plate_r:.1f}" fill="#ffffff"/>'
+        f'<image href="{icon_data_uri(icon_slug)}" x="{icon_offset:.1f}" y="{icon_offset:.1f}" '
+        f'width="{icon_size:.1f}" height="{icon_size:.1f}" preserveAspectRatio="xMidYMid meet"{filter_attr}/>'
         "</svg>"
     )
     b64 = base64.b64encode(svg.encode("utf-8")).decode("ascii")
@@ -145,7 +179,7 @@ def _build_network(graph: dict, products_df: pd.DataFrame) -> Network:
             name = info.get("name", f"상품 {node['ref_id']}")
             category = info.get("category", "-")
             price = info.get("price_usd")
-            emoji = get_product_emoji(name, category)
+            icon_slug = icon_slug_for(product_type_from_name(name))
             is_hop2 = node["hop"] == 2
             if node.get("purchased") is True:
                 color, size = _COLOR_PRODUCT_PURCHASED, _SIZE_PRODUCT_HOP1
@@ -153,12 +187,17 @@ def _build_network(graph: dict, products_df: pd.DataFrame) -> Network:
                 color, size = _COLOR_PRODUCT_HOP2, _SIZE_PRODUCT_HOP2
             else:
                 color, size = _COLOR_PRODUCT_VIEWED, _SIZE_PRODUCT_HOP1
-            # 이모지는 색상 원과 함께 미리 구운 SVG 이미지(circularImage)로 노드 "안에" 표시하고,
-            # 상품명은 hover 시 title 툴팁으로만 보여준다(상시 라벨 제거 — 위 _HIDDEN_LABEL 참고).
+            # 아이콘(PNG 있으면 그걸로, 없으면 이모지 폴백)은 색상 원과 함께 미리 구운 SVG
+            # 이미지(circularImage)로 노드 "안에" 표시하고, 상품명은 hover 시 title 툴팁으로만
+            # 보여준다(상시 라벨 제거 — 위 _HIDDEN_LABEL 참고).
             title = f"{name}<br>{category}" + (f"<br>$ {price:.2f}" if price is not None else "")
+            if icon_slug:
+                image = _icon_circle_image(icon_slug, color, extract_color(name))
+            else:
+                image = _emoji_circle_image(get_product_emoji(name, category), color)
             net.add_node(
                 node["node_id"], label=_HIDDEN_LABEL, title=title, shape="circularImage",
-                image=_emoji_circle_image(emoji, color), color=color, size=size,
+                image=image, color=color, size=size,
             )
         else:  # segment
             color = _COLOR_SEGMENT_OWN if node.get("is_own_segment") else _COLOR_SEGMENT
