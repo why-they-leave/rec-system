@@ -259,9 +259,11 @@ def render_user_twiddler_case(user_id: int) -> None:
 
     c1, c2, c3 = st.columns(3)
     with c1, st.container(border=True):
-        st.metric("Rule 1 · alpha", f"{case['alpha']:.3f}")
+        # 기술 용어(alpha/decay)는 괄호로 병기 — 일반 사용자는 의미로, 개발자는
+        # 파라미터명으로 읽을 수 있게(요청 반영: "Rule 1 · alpha"만으로는 이해 어려움).
+        st.metric("관심 카테고리 반영 강도 (alpha)", f"{case['alpha']:.3f}")
     with c2, st.container(border=True):
-        st.metric("Rule 2 · decay", f"{case['decay']:.3f}")
+        st.metric("중복 노출 감소율 (decay)", f"{case['decay']:.3f}")
     with c3, st.container(border=True):
         st.metric("선호 카테고리", case["top_category"] or "-")
     st.caption(

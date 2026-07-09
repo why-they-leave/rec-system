@@ -529,15 +529,8 @@ def _render_model_twiddler_block(
     phase_key = f"{session_prefix}_twiddler_phase"
     twiddler_phase = "Before" if is_cold else st.session_state.get(phase_key, "After")
 
-    # 유형·로그·Twiddler 상태를 한 카드에 통합(요청 반영 — 기존엔 subheader + markdown +
-    # 별도 st.metric 2개로 흩어져 있었음).
-    render_user_card(
-        user_id,
-        user_info["persona_label"],
-        user_type_val,
-        user_info["log_count"],
-        twiddler_status=twiddler_phase,
-    )
+    # 개별 유저 카드는 _render_rerank_main 상단(페르소나 특성 카드 위)으로 옮겨서
+    # 여기서는 중복 렌더링하지 않는다(요청 반영).
 
     # 모델 좌우 토글 — 개별 유저 카드 바로 아래(요청 반영). 버튼 클릭은 session_state를
     # 바꾸고 즉시 st.rerun()하므로, 이 함수가 지금 어떤 model_type로 호출됐는지와 무관하게
@@ -666,6 +659,16 @@ def _render_rerank_main(
 
     # ── 유저 소개 (페르소나 선택 + 유저 선택) ──────────────────────────────
     user_id, user_info = render_persona_and_user_selector(demo_users_df)
+    # "개별 유저" 카드를 "페르소나 특성" 카드보다 위로(요청 반영) — 이 시점엔 아직 모델/
+    # Twiddler phase가 안 정해졌으므로 twiddler_status 없이 표시(모델별 상세 상태는
+    # 아래 토글 버튼 자체가 보여준다). 원래 이 위치에서 모델별로 다시 렌더링하던 카드는
+    # 중복이라 제거했다.
+    render_user_card(
+        user_id,
+        user_info["persona_label"],
+        user_info["user_type_label"],
+        user_info["log_count"],
+    )
     render_persona_card(user_info)
 
     try:
