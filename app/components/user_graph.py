@@ -14,6 +14,7 @@ import base64
 import pandas as pd
 import streamlit as st
 from pyvis.network import Network
+from components.user_selector import PERSONA_KO
 from utils.category_emoji import extract_color, get_product_emoji, product_type_from_name
 from utils.data_loader import get_user_subgraph, load_products
 from utils.product_icons import icon_color_filter, icon_data_uri, icon_slug_for
@@ -208,9 +209,18 @@ def _build_network(graph: dict, products_df: pd.DataFrame) -> Network:
             )
         else:  # segment
             color = _COLOR_SEGMENT_OWN if node.get("is_own_segment") else _COLOR_SEGMENT
-            label = node.get("segment_name", f"세그먼트 {node['ref_id']}")
+            segment_name = node.get("segment_name")
+            if segment_name:
+                # 다이아몬드 노드가 작아 영문 원문(segment_name)을 그대로 쓰면 길게 겹쳐 보인다
+                # — 유저 선택 드롭다운과 같은 짧은 한글 태그(PERSONA_KO)를 라벨로, 원문은
+                # title(hover 툴팁)로만 노출한다(요청 반영: "세그먼트 3" 대신 실제 이름).
+                label = PERSONA_KO.get(segment_name, segment_name)
+                title = f"{segment_name} ({label})" if label != segment_name else segment_name
+            else:
+                label = f"세그먼트 {node['ref_id']}"
+                title = label
             net.add_node(
-                node["node_id"], label=label, title=label,
+                node["node_id"], label=label, title=title,
                 color=color, size=_SIZE_SEGMENT, shape="diamond",
             )
 
