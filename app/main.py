@@ -674,7 +674,7 @@ def _render_model_twiddler_block(
         )
 
     st.divider()
-    st.markdown(f"### 📈 오프라인 성능 지표 ({eval_label} only vs {eval_label}+Twiddler)")
+    st.markdown(f"### 오프라인 성능 지표 ({eval_label} only vs {eval_label}+Twiddler)")
     render_eval_metrics(context=eval_context, persona_label=user_info["persona_label"])
 
 
@@ -765,7 +765,7 @@ def _render_rerank_detail(demo_users_df: pd.DataFrame) -> None:
         st.session_state["view"] = "main"
         st.rerun()
 
-    st.title("🛒 연관 상품 추천")
+    st.title("연관 상품 추천")
 
     item_id = st.session_state.get("selected_item_id")
     if item_id is None:
@@ -853,7 +853,7 @@ def _render_rerank_detail(demo_users_df: pd.DataFrame) -> None:
     )
 
     st.divider()
-    st.markdown("### 📈 오프라인 성능 지표 (보완재 only vs 보완재+Twiddler)")
+    st.markdown("### 오프라인 성능 지표 (보완재 only vs 보완재+Twiddler)")
     render_eval_metrics(context="detail", persona_label=user_info["persona_label"])
 
 
