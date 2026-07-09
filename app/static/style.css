@@ -565,7 +565,8 @@
     gap: 0.1rem !important;
 }
 [class*="st-key-project_page_"] button,
-[class*="st-key-rerank_page_"] button {
+[class*="st-key-rerank_page_"] button,
+[class*="st-key-rerank_detail_page_"] button {
     background: transparent !important;
     border: none !important;
     border-left: 2px solid transparent !important;
@@ -581,22 +582,27 @@
     transition: color 0.15s ease, border-color 0.15s ease;
 }
 [class*="st-key-project_page_"] button:hover,
-[class*="st-key-rerank_page_"] button:hover {
+[class*="st-key-rerank_page_"] button:hover,
+[class*="st-key-rerank_detail_page_"] button:hover {
     color: #0f172a !important;
 }
 [class*="st-key-project_page_"] button p,
-[class*="st-key-rerank_page_"] button p {
+[class*="st-key-rerank_page_"] button p,
+[class*="st-key-rerank_detail_page_"] button p {
     font-size: 0.9rem !important;
     line-height: 1.35 !important;
 }
 [class*="st-key-project_page_"] button[kind="primary"],
-[class*="st-key-rerank_page_"] button[kind="primary"] {
+[class*="st-key-rerank_page_"] button[kind="primary"],
+[class*="st-key-rerank_detail_page_"] button[kind="primary"] {
     border-left-color: #6366f1 !important;
 }
 [class*="st-key-project_page_"] button[kind="primary"],
 [class*="st-key-project_page_"] button[kind="primary"] p,
 [class*="st-key-rerank_page_"] button[kind="primary"],
-[class*="st-key-rerank_page_"] button[kind="primary"] p {
+[class*="st-key-rerank_page_"] button[kind="primary"] p,
+[class*="st-key-rerank_detail_page_"] button[kind="primary"],
+[class*="st-key-rerank_detail_page_"] button[kind="primary"] p {
     color: #0f172a !important;
     font-weight: 700 !important;
 }
