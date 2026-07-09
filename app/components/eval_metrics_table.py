@@ -12,7 +12,8 @@ _CONDITION_LABELS: dict[str, dict[str, str]] = {
     "main": {"baseline": "ALS only", "twiddler": "ALS+Twiddler"},
     "detail": {"baseline": "보완재 only", "twiddler": "보완재+Twiddler"},
     "main_lightgcn_bipartite": {
-        "baseline": "LightGCN bipartite only", "twiddler": "LightGCN bipartite+Twiddler",
+        "baseline": "LightGCN bipartite only",
+        "twiddler": "LightGCN bipartite+Twiddler",
     },
 }
 # baseline/twiddler 2계열 고정 색상 — seaborn "colorblind" 팔레트 첫 두 색(파랑/주황)과
@@ -21,8 +22,13 @@ _CONDITION_COLORS: dict[str, str] = {"baseline": "#0173B2", "twiddler": "#DE8F05
 
 _ACCURACY_COLS = ["condition", "k", "HR", "Recall", "NDCG", "eval_users"]
 _DIVERSITY_COLS = [
-    "condition", "k", "repetition_rate", "unique_item_ratio",
-    "categories_first", "categories_cumulative", "n_users",
+    "condition",
+    "k",
+    "repetition_rate",
+    "unique_item_ratio",
+    "categories_first",
+    "categories_cumulative",
+    "n_users",
 ]
 _DIVERSITY_RENAME = {
     "repetition_rate": "반복률(중복)",
@@ -50,7 +56,9 @@ def _localize(df: pd.DataFrame, context: str, cols: list[str]) -> pd.DataFrame:
     return out.rename(columns=_DIVERSITY_RENAME)
 
 
-def _grouped_bar_figure(df: pd.DataFrame, context: str, metrics: list[tuple[str, str]]) -> go.Figure:
+def _grouped_bar_figure(
+    df: pd.DataFrame, context: str, metrics: list[tuple[str, str]]
+) -> go.Figure:
     """condition(baseline/twiddler) 그룹 막대그래프 — 지표별 서브플롯, K가 x축.
 
     범례는 첫 서브플롯에만 표시하고 나머지는 legendgroup으로 묶어 중복 노출을 막는다
@@ -74,7 +82,8 @@ def _grouped_bar_figure(df: pd.DataFrame, context: str, metrics: list[tuple[str,
                     legendgroup=condition,
                     showlegend=(col == 1),
                 ),
-                row=1, col=col,
+                row=1,
+                col=col,
             )
 
     fig.update_layout(
@@ -87,18 +96,77 @@ def _grouped_bar_figure(df: pd.DataFrame, context: str, metrics: list[tuple[str,
     return fig
 
 
+def _interpret_headline(
+    df: pd.DataFrame,
+    context: str,
+    metric_key: str,
+    metric_label: str,
+    higher_is_better: bool,
+) -> str:
+    """baseline→twiddler 변화율을 K별로 계산해 한 줄 해석 문구를 만든다.
+
+    K마다 방향이 엇갈릴 수 있어(예: HR@5 개선, HR@10 하락) "전반적으로 개선됐다"처럼
+    단정하지 않고, 실제 계산된 숫자를 K별로 그대로 보여준 뒤 방향이 갈리면 그 사실 자체를
+    알린다 — 없는 경향을 있는 것처럼 보여주지 않기 위함(하드코딩 문구 대신 CSV 재계산 때마다
+    자동 갱신되도록 설계, #10 이슈의 "숫자-표시 불일치" 재발 방지).
+    """
+    pivot = df.pivot(index="k", columns="condition", values=metric_key).sort_index()
+    if "baseline" not in pivot.columns or "twiddler" not in pivot.columns:
+        return ""
+
+    parts, directions = [], []
+    for k, row in pivot.iterrows():
+        base, twid = row["baseline"], row["twiddler"]
+        if pd.isna(base) or pd.isna(twid) or base == 0:
+            continue
+        delta_pct = (twid - base) / base * 100
+        is_better = (delta_pct > 0) if higher_is_better else (delta_pct < 0)
+        directions.append(is_better)
+        arrow = "▲" if delta_pct > 0 else ("▼" if delta_pct < 0 else "–")
+        parts.append(f"K={int(k)} {arrow}{abs(delta_pct):.1f}%")
+
+    if not parts:
+        return ""
+
+    if all(directions):
+        verdict = "전반적으로 개선"
+    elif not any(directions):
+        verdict = "전반적으로 악화"
+    else:
+        verdict = "K에 따라 효과가 엇갈림 — 특정 K에 최적화하면 다른 K가 희생될 수 있음"
+
+    return f"💡 {metric_label} 변화 ({_CONDITION_LABELS[context]['twiddler']} vs baseline): {', '.join(parts)} — {verdict}"
+
+
 def _render_metric_section(
-    df: pd.DataFrame, context: str, metrics: list[tuple[str, str]],
-    cols: list[str], key: str,
+    df: pd.DataFrame,
+    context: str,
+    metrics: list[tuple[str, str]],
+    cols: list[str],
+    key: str,
+    headline: tuple[str, str, bool] | None = None,
 ) -> None:
-    """그래프를 기본으로 보여주고, 원본 표는 expander에 접어둔다(접근성: 표 뷰는 항상 존재)."""
+    """그래프를 기본으로 보여주고, 원본 표는 expander에 접어둔다(접근성: 표 뷰는 항상 존재).
+
+    headline: (metric_key, metric_label, higher_is_better) — 주어지면 그래프 바로 아래에
+    자동 계산된 해석 캡션을 붙인다(표를 펼쳐보기 전에 "뭐가 달라졌는지"부터 보이게).
+    """
     if df.empty:
         st.caption("데이터가 없습니다.")
         return
     st.plotly_chart(
-        _grouped_bar_figure(df, context, metrics), width="stretch", key=key,
+        _grouped_bar_figure(df, context, metrics),
+        width="stretch",
+        key=key,
         config={"displayModeBar": False},  # 카메라/줌 등 Plotly 기본 툴바 숨김(요청 반영)
     )
+    if headline:
+        metric_key, metric_label, higher_is_better = headline
+        interpretation = _interpret_headline(
+            df, context, metric_key, metric_label, higher_is_better
+        )
+        if interpretation:
+            st.caption(interpretation)
     with st.expander("표로 보기"):
         st.dataframe(_localize(df, context, cols), hide_index=True, width="stretch")
 
@@ -127,14 +195,22 @@ def render_eval_metrics(context: str, persona_label: str | None = None) -> None:
 
     st.markdown("**① 전체 정확도 — 단일 세션/조회 기준 (population 평균)**")
     _render_metric_section(
-        acc_ctx[acc_ctx["segment"] == _ALL_SEGMENTS_LABEL], context, _ACCURACY_METRICS,
-        _ACCURACY_COLS, key=f"acc_all_{context}",
+        acc_ctx[acc_ctx["segment"] == _ALL_SEGMENTS_LABEL],
+        context,
+        _ACCURACY_METRICS,
+        _ACCURACY_COLS,
+        key=f"acc_all_{context}",
+        headline=("HR", "HR@K", True),
     )
 
     st.markdown("**② 전체 다양성 — 반복 새로고침/재방문 기준 (population 평균)**")
     _render_metric_section(
-        div_ctx[div_ctx["segment"] == _ALL_SEGMENTS_LABEL], context, _DIVERSITY_METRICS,
-        _DIVERSITY_COLS, key=f"div_all_{context}",
+        div_ctx[div_ctx["segment"] == _ALL_SEGMENTS_LABEL],
+        context,
+        _DIVERSITY_METRICS,
+        _DIVERSITY_COLS,
+        key=f"div_all_{context}",
+        headline=("repetition_rate", "반복률", False),
     )
 
     if not persona_label:
@@ -146,8 +222,22 @@ def render_eval_metrics(context: str, persona_label: str | None = None) -> None:
     if seg_acc.empty and seg_div.empty:
         st.caption("이 페르소나는 평가 데이터가 부족해 breakdown을 계산하지 못했습니다.")
         return
-    _render_metric_section(seg_acc, context, _ACCURACY_METRICS, _ACCURACY_COLS, key=f"acc_seg_{context}")
-    _render_metric_section(seg_div, context, _DIVERSITY_METRICS, _DIVERSITY_COLS, key=f"div_seg_{context}")
+    _render_metric_section(
+        seg_acc,
+        context,
+        _ACCURACY_METRICS,
+        _ACCURACY_COLS,
+        key=f"acc_seg_{context}",
+        headline=("HR", "HR@K", True),
+    )
+    _render_metric_section(
+        seg_div,
+        context,
+        _DIVERSITY_METRICS,
+        _DIVERSITY_COLS,
+        key=f"div_seg_{context}",
+        headline=("repetition_rate", "반복률", False),
+    )
 
 
 def render_user_twiddler_case(user_id: int) -> None:
@@ -162,7 +252,9 @@ def render_user_twiddler_case(user_id: int) -> None:
     st.markdown('<div class="section-label">Twiddler 재랭킹 근거</div>', unsafe_allow_html=True)
     case = get_user_twiddler_case(user_id)
     if case is None:
-        st.caption("이 유저는 페르소나 데이터가 없어 Twiddler가 적용되지 않습니다(인기도 기반 추천).")
+        st.caption(
+            "이 유저는 페르소나 데이터가 없어 Twiddler가 적용되지 않습니다(인기도 기반 추천)."
+        )
         return
 
     c1, c2, c3 = st.columns(3)

@@ -3,6 +3,7 @@
 기여자 카드(캐릭터 이미지 + GitHub 링크 + 소속/목표/역할) + 팀 소개 한 줄로 구성.
 캐릭터 이미지는 app/static/images/character/의 기존 4장을 GitHub 계정명으로 매핑해 사용한다.
 """
+
 import streamlit as st
 
 TEAM_URL_DIR = "app/static/images/character"  # enableStaticServing 기준 상대 URL(다른 static 이미지와 동일 관례)
@@ -74,8 +75,15 @@ def _render_team_card(member: dict) -> None:
         roles_html = "".join(f"<li>{role}</li>" for role in member["roles"])
         st.markdown(f'<ul class="team-role-list">{roles_html}</ul>', unsafe_allow_html=True)
 
-        st.link_button(
-            "GitHub ↗", f"https://github.com/{member['github']}", width="stretch",
+        # st.link_button은 텍스트만 지원해 GitHub 로고를 못 넣는다 — 요청대로 실제 로고
+        # 이미지(app/static/images/github_logo.png)를 쓰는 커스텀 <a> 앵커로 대체
+        # (스타일은 style.css의 .team-github-link).
+        st.markdown(
+            f'<a href="https://github.com/{member["github"]}" target="_blank" '
+            f'class="team-github-link">'
+            f'<img src="app/static/images/github_logo.png" alt="GitHub" />'
+            f'GitHub</a>',
+            unsafe_allow_html=True,
         )
 
 
@@ -85,7 +93,7 @@ def render_team_page() -> None:
         '<div class="team-intro">'
         '<span class="team-intro-title">추크크✨ Recommendation Creator Crew</span><br>'
         '<span class="team-intro-desc">탐색 비용 감소를 위한 페르소나 기반 개인화 및 연관 상품 재순위화 연구를 함께 진행한 팀입니다.</span>'
-        '</div>',
+        "</div>",
         unsafe_allow_html=True,
     )
 

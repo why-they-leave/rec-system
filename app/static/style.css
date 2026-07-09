@@ -99,6 +99,79 @@
 .product-price { font-size: 0.85rem; font-weight: 700; color: #1a1a1a; margin: 4px 0; }
 .product-rank  { font-size: 0.72rem; color: var(--text-muted); margin: 2px 0; }
 
+/* ===== 상품 카드 — 커머스 스타일(사진 패널 + 브랜드뱃지 + 매칭율/가격 + 순위뱃지) =====
+ * 참고 이미지(오늘의집 카드)의 레이아웃을 그대로 가져오되, 없는 데이터(할인율/별점/리뷰수/
+ * 배송·쿠폰)는 만들어내지 않고 우리가 실제로 가진 값(추천 점수→매칭율, 순위, 카테고리
+ * 아이콘, 순위변동 배지)으로만 채운다(요청 반영: "우리한테 있는 구성요소로").
+ */
+.product-photo-panel {
+    position: relative;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px 0;
+    margin-bottom: 8px;
+}
+.product-photo-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.product-photo-badge img { width: 16px; height: 16px; object-fit: contain; }
+.product-brand-line {
+    font-size: 0.72rem;
+    color: var(--text-meta);
+    text-align: left;
+    margin-bottom: 2px;
+}
+.product-title-line {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-align: left;
+    line-height: 1.3;
+    margin-bottom: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.product-match-price-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+.product-match-pill {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #6366f1;
+}
+.product-price-line {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1a1a1a;
+}
+.product-rating-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    color: var(--text-meta);
+    text-align: left;
+    margin-bottom: 6px;
+}
+
 /* ===== 배지 ===== */
 .badge {
     display: inline-block;
@@ -142,6 +215,12 @@
     font-size: 0.85rem;
     color: #334155;
     line-height: 1.5;
+}
+.persona-card-name {
+    font-size: 0.82rem;
+    color: #1d4ed8;
+    font-weight: 600;
+    margin-bottom: 4px;
 }
 
 /* ===== 개별 유저 요약 카드 =====
@@ -281,6 +360,11 @@
     flex-direction: column !important;
 }
 
+/* ===== 사이드바: 배경 흰색 ===== */
+[data-testid="stSidebar"] {
+    background-color: #ffffff !important;
+}
+
 /* ===== 사이드바: 타이틀을 페이지 네비게이션보다 위에 표시 ===== */
 [data-testid="stSidebar"] > div:first-child {
     display: flex !important;
@@ -392,4 +476,27 @@
     color: var(--text-meta);
     margin: 0 0 12px 0;
     padding-left: 1.2rem;
+}
+.team-github-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 0.4rem 0.75rem;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    background-color: #f6f8fa;
+    color: #24292f;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    box-sizing: border-box;
+}
+.team-github-link:hover {
+    background-color: #eef1f4;
+}
+.team-github-link img {
+    width: 16px;
+    height: 16px;
 }

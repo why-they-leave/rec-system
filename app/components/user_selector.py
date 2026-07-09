@@ -32,6 +32,17 @@ PERSONA_META: dict[str, dict] = {
     },
 }
 
+# 드롭다운에서 영문 세그먼트명 옆에 짧게 붙일 한글 한 줄 해석 — PERSONA_META의 desc(상세
+# 설명)와 별개로, 선택 전에 뜻을 훑어볼 수 있게 짧은 요약만 괄호로 덧붙인다(요청 반영).
+_PERSONA_KO: dict[str, str] = {
+    "Frequent Viewers with Consistent Purchases": "꾸준한 구매형",
+    "Non-Purchasing Browsers": "구경만 하는 유저",
+    "Low-Engagement Non-Purchasers": "저활동 비구매",
+    "Frequent Browsers with Occasional Purchases": "가끔 사는 탐색형",
+    "High-Engagement Occasional Purchasers": "간헐적 구매형",
+    "High-Engagement Repeat Purchasers": "반복구매 충성형",
+}
+
 
 def render_persona_and_user_selector(demo_users_df: pd.DataFrame) -> tuple[int, dict]:
     """메인 화면(유저 소개 영역)에 페르소나 선택과 유저 선택을 나란히(2열) 렌더링.
@@ -44,15 +55,18 @@ def render_persona_and_user_selector(demo_users_df: pd.DataFrame) -> tuple[int, 
 
     with col_persona:
         selected_persona = st.selectbox(
-            "🧭 페르소나 선택",
+            "페르소나 선택",
             options=personas,
+            format_func=lambda p: f"{p} ({_PERSONA_KO.get(p, '')})" if _PERSONA_KO.get(p) else p,
             key="selected_persona",
         )
 
     persona_users = demo_users_df[demo_users_df["persona_label"] == selected_persona]
     options = persona_users["user_id"].tolist()
     label_map = {
-        int(row["user_id"]): f"User {int(row['user_id']):05d} | {row['user_type'].upper()} | 로그 {int(row['log_count']):,}건"
+        int(
+            row["user_id"]
+        ): f"User {int(row['user_id']):05d} | {row['user_type'].upper()} | 로그 {int(row['log_count']):,}건"
         for _, row in persona_users.iterrows()
     }
 
@@ -90,12 +104,16 @@ def render_persona_card(user_info: dict) -> None:
     """페르소나 특성 카드 — 세그먼트 비중 배지(우측) + 설명(요청 반영: st.info 대신 커스텀
     박스로 바꿔 배지를 헤더 우측에 나란히 배치할 수 있게 함, style.css의 .persona-card*).
     """
+    persona_label = user_info["persona_label"]
+    persona_ko = _PERSONA_KO.get(persona_label, "")
+    persona_name = f"{persona_label} ({persona_ko})" if persona_ko else persona_label
     st.markdown(
         f'<div class="persona-card">'
         f'<div class="persona-card-header">'
         f'<span class="persona-card-title">페르소나 특성</span>'
         f'<span class="badge badge-segment">세그먼트 {user_info["persona_pct"]:.1f}%</span>'
         f'</div>'
+        f'<div class="persona-card-name">{persona_name}</div>'
         f'<div class="persona-card-desc">{user_info["persona_desc"]}</div>'
         f'</div>',
         unsafe_allow_html=True,
@@ -103,7 +121,10 @@ def render_persona_card(user_info: dict) -> None:
 
 
 def render_user_card(
-    user_id: int, persona_label: str, user_type_label: str, log_count: int,
+    user_id: int,
+    persona_label: str,
+    user_type_label: str,
+    log_count: int,
     twiddler_status: str | None = None,
 ) -> None:
     """개별 유저 요약 카드 — 아바타(사람 대신 유저 번호 원형) + 유형·로그·Twiddler 상태를
@@ -115,10 +136,10 @@ def render_user_card(
     st.markdown(
         f'<div class="user-summary-card">'
         f'<div class="user-summary-avatar">{user_id}</div>'
-        f'<div>'
+        f"<div>"
         f'<div class="user-summary-label">🧑 개별 유저</div>'
         f'<div class="user-summary-name">User {user_id:03d} · {persona_label}</div>'
         f'<div class="user-summary-meta">{user_type_label.upper()} · 로그 {log_count:,}건{status_part}</div>'
-        f'</div></div>',
+        f"</div></div>",
         unsafe_allow_html=True,
     )
