@@ -971,8 +971,10 @@ def _render_persona_tab(
     st.title("효과 해석")
     st.caption(
         "bi-graph는 유저-상품 관계만, tri-graph는 여기에 페르소나 노드를 추가로 연결해 "
-        "학습합니다. 두 그래프의 추천 결과를 비교하면 페르소나 정보가 추천 정확도에 "
-        "실제로 기여하는지 확인할 수 있습니다."
+        "학습합니다.<br>"
+        "두 그래프의 추천 결과를 비교하면 페르소나 정보가 추천 정확도에 실제로 기여하는지 "
+        "확인할 수 있습니다.",
+        unsafe_allow_html=True,
     )
 
     user_id, user_info = render_persona_and_user_selector(demo_users_df)

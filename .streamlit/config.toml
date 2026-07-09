@@ -4,7 +4,7 @@ enableStaticServing = true   # app/static/ 하위 파일을 HTTP로 서빙 (아�
 
 [theme]
 primaryColor = "#6366f1"
-backgroundColor = "#f8fafc"
+backgroundColor = "#ffffff"
 secondaryBackgroundColor = "#f8fafc"
 textColor = "#1a1a1a"
 font = "sans serif"

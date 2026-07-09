@@ -672,17 +672,16 @@
 [class*="st-key-rerank_detail_page_"] button {
     background: transparent !important;
     border: none !important;
-    border-left: 2px solid transparent !important;
-    border-radius: 0 !important;
+    border-radius: 6px !important;
     box-shadow: none !important;
     justify-content: flex-start !important;
-    padding: 0.3rem 0 0.3rem 0.6rem !important;
+    padding: 0.3rem 0.6rem !important;
     min-height: 1.75rem !important;
     height: auto !important;
     color: #64748b !important;
     font-size: 0.9rem !important;
     font-weight: 500 !important;
-    transition: color 0.15s ease, border-color 0.15s ease;
+    transition: color 0.15s ease, background-color 0.15s ease;
 }
 [class*="st-key-project_page_"] button:hover,
 [class*="st-key-rerank_page_"] button:hover,
@@ -695,10 +694,21 @@
     font-size: 0.9rem !important;
     line-height: 1.35 !important;
 }
+/* 선택된 항목은 파란 왼쪽 줄 대신 흰색 칸으로 강조한다(요청 반영: "파란줄은 빼고
+ * 해당 칸이 흰색이 되었으면 좋겠어") — 사이드바 배경이 #f8fafc라 흰 배경이 카드처럼
+ * 도드라져 보인다. */
 [class*="st-key-project_page_"] button[kind="primary"],
 [class*="st-key-rerank_page_"] button[kind="primary"],
 [class*="st-key-rerank_detail_page_"] button[kind="primary"] {
-    border-left-color: #6366f1 !important;
+    background: #ffffff !important;
+    /* 사이드바 자체 좌우 패딩(20px)이 흰 박스 양옆에 여백처럼 보였다(요청 반영:
+     * "옆에 너비 안남기고") — 음수 마진으로 사이드바 가장자리까지 꽉 채우고, 그만큼
+     * padding을 더해 글자 위치(인셋)는 그대로 유지한다. */
+    margin-left: -20px !important;
+    margin-right: -20px !important;
+    width: calc(100% + 40px) !important;
+    padding-left: 20px !important;
+    padding-right: 20px !important;
 }
 [class*="st-key-project_page_"] button[kind="primary"],
 [class*="st-key-project_page_"] button[kind="primary"] p,
@@ -814,9 +824,26 @@
     color: var(--text-meta);
 }
 
-/* ===== 사이드바: 배경 흰색 ===== */
+/* ===== 사이드바/본문 배경 색 맞바꿈 (요청 반영: "사이드바를 메인페이지 색으로,
+ * 메인페이지를 흰색으로") — 이전엔 본문이 #f8fafc, 사이드바가 흰색이었다. 본문은
+ * .streamlit/config.toml의 backgroundColor를 #ffffff로 바꿨고, 사이드바는 여기서
+ * 이전 본문 색(#f8fafc)으로 채운다. */
 [data-testid="stSidebar"] {
-    background-color: #ffffff !important;
+    /* 아주 조금 더 진하게(요청 반영) — #f8fafc보다 한 단계만 어둡게. */
+    background-color: #f1f5f9 !important;
+}
+
+/* ===== 사이드바 너비 축소 (요청 반영) =====
+ * Streamlit 기본 사이드바 폭(21rem≈336px)은 카테고리 필터/모델 선택 리스트만 담기엔
+ * 넓다 — 좁혀서 본문에 더 폭을 준다. 실제 폭을 정하는 요소가 stSidebar 자체와 그
+ * 바로 안쪽 div 둘 다라 함께 짚는다(하나만 주면 안 줄어드는 경우가 있어 확인 후 둘 다 고정).
+ */
+[data-testid="stSidebar"] {
+    width: 260px !important;
+    min-width: 260px !important;
+}
+[data-testid="stSidebar"] > div {
+    width: 260px !important;
 }
 
 /* ===== 사이드바: 타이틀을 페이지 네비게이션보다 위에 표시 ===== */
@@ -925,11 +952,13 @@
     position: relative;
 }
 .team-photo-circle {
+    /* 캐릭터 뒤 원형 배경이 튀어 보인다는 피드백으로 제거(요청 반영) — 캐릭터 이미지
+     * 자체가 투명 배경이라 배경색 없이도 원형 크롭(border-radius)은 그대로 유지된다. */
     width: 88px;
     height: 88px;
     border-radius: 50%;
     object-fit: cover;
-    background: #f1f5f9;
+    background: transparent;
 }
 /* 캐릭터 사진 위에 얹는 말풍선(요청 반영: "정연이야_반가워" 이미지) — .team-photo-item의
  * margin-top이 미리 확보해둔 자리 안에서만 위로 뜨도록 오프셋을 좁혀 배너 박스와
@@ -1361,6 +1390,11 @@
     font-size: 0.85rem;
     line-height: 1.65;
     color: #334155;
+    /* 한글은 음절 단위로 아무 데서나 줄바꿈돼 "습니다"가 "습"/"니다"로 쪼개지는 등
+     * 단어 중간이 애매하게 끊겨 보였다(요청 반영) — keep-all로 띄어쓰기 단위에서만
+     * 줄바꿈하게 한다. 영문 토큰이 박스보다 길 때를 대비해 break-word를 폴백으로 둔다. */
+    word-break: keep-all;
+    overflow-wrap: break-word;
 }
 .glossary-term-desc strong {
     color: #b91c1c;

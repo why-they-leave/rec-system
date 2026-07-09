@@ -2,8 +2,10 @@
 
 내용은 팀 handoff 문서(2026-07-09) 기준. 논문식 설명 대신 2~3문장 이내 짧은
 설명 위주로 구성하고, "페르소나 = 실제 고객 정체성"으로 오해하지 않도록
-주의 문구를 포함한다.
+주의 문구를 포함한다. 카드형 그리드로 렌더링한다(요청 반영: "이쁘게" 개선).
 """
+
+import re
 
 import streamlit as st
 
@@ -13,7 +15,7 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         [
             (
                 "Clickstream",
-                "사용자가 웹사이트에서 남긴 행동 로그입니다. 예: 상품 조회, 장바구니 담기, 체크아웃, 구매",
+                "사용자가 웹사이트에서 남긴 행동 로그입니다.\n\n예: 상품 조회, 장바구니 담기, 체크아웃, 구매",
             ),
             (
                 "Session",
@@ -26,12 +28,12 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
             ),
             (
                 "Customer Feature",
-                "이벤트·세션·주문 로그를 고객 단위로 집계한 피처입니다. 예: 조회 수, 장바구니 비율, "
+                "이벤트·세션·주문 로그를 고객 단위로 집계한 피처입니다.\n\n예: 조회 수, 장바구니 비율, "
                 "주문 수, 최근 방문일, 주요 구매 카테고리",
             ),
             (
                 "Derived Feature",
-                "단순 집계값을 조합해 만든 파생 피처입니다. 예: atc_rate, purchase_per_session, total_spend_log",
+                "단순 집계값을 조합해 만든 파생 피처입니다.\n\n예: atc_rate, purchase_per_session, total_spend_log",
             ),
         ],
     ),
@@ -139,15 +141,38 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
     ),
 ]
 
+_SECTION_ICONS: dict[str, str] = {
+    "데이터 / 피처": "📊",
+    "세그먼트 / 페르소나": "🧬",
+    "추천 모델": "🤖",
+    "Twiddler": "🎛️",
+    "평가 지표": "📈",
+}
+
+
+def _desc_html(desc: str) -> str:
+    """용어 설명에 쓰는 최소한의 마크다운(굵게/코드/문단나눔)만 HTML로 변환한다."""
+    html = desc.replace("\n\n", "<br><br>")
+    html = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", html)
+    html = re.sub(r"`(.+?)`", r"<code>\1</code>", html)
+    return html
+
 
 def render_glossary() -> None:
     st.title("용어 해석")
-    st.markdown("데모에서 사용되는 추천 시스템, 그래프, 페르소나 관련 주요 용어를 정리합니다.")
-    st.divider()
+    st.caption("데모에서 사용되는 추천 시스템, 그래프, 페르소나 관련 주요 용어를 정리합니다.")
 
     for section_title, terms in _SECTIONS:
-        st.subheader(section_title)
-        for term, desc in terms:
-            st.markdown(f"**{term}**")
-            st.markdown(desc)
-        st.divider()
+        icon = _SECTION_ICONS.get(section_title, "")
+        st.markdown(
+            f'<div class="glossary-section-title">{icon} {section_title}</div>',
+            unsafe_allow_html=True,
+        )
+        cards_html = "".join(
+            f'<div class="glossary-term-card">'
+            f'<div class="glossary-term-name">{term}</div>'
+            f'<div class="glossary-term-desc">{_desc_html(desc)}</div>'
+            f"</div>"
+            for term, desc in terms
+        )
+        st.markdown(f'<div class="glossary-grid">{cards_html}</div>', unsafe_allow_html=True)
