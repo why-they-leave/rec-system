@@ -42,14 +42,15 @@ from components.eval_metrics_table import (  # noqa: E402
     render_eval_metrics,
     render_user_twiddler_case,
 )
+from components.glossary import render_glossary  # noqa: E402
 from components.product_card import render_current_product_card, render_product_card  # noqa: E402
+from components.project_intro import render_project_intro  # noqa: E402
 from components.team_page import render_team_page  # noqa: E402
 from components.user_graph import render_user_graph  # noqa: E402
 from components.user_list import render_user_list  # noqa: E402
 from components.user_selector import (  # noqa: E402
     render_persona_and_user_selector,
-    render_persona_card,
-    render_user_card,
+    render_user_summary_card,
 )
 from utils.category_emoji import (  # noqa: E402
     CATEGORY_EMOJI,
@@ -93,16 +94,19 @@ _SIM_ROUNDS = 5
 
 
 def _render_top_navbar() -> None:
-    """로고+브랜드 + 탭 버튼(Twiddler 재랭킹/페르소나 기여도/유저 목록/팀 소개)을 본문 최상단에
-    가로로 배치(요청 반영: 사이드바 버튼 → 상단바로 이동). 로직은 그대로 두고 위치만 옮긴
-    것이라 각 버튼은 기존과 동일하게 session_state["main_tab"]만 바꾸고 st.rerun()한다.
+    """로고+브랜드(맨 위 별도 줄) + 탭 버튼 필 카드(그 아래 줄)를 본문 최상단에 배치.
+
+    원래는 로고+브랜드와 탭 버튼이 같은 필 카드 한 줄에 같이 있었는데, 로고가 nav 링크
+    사이에 끼어 있는 것처럼 보여 어색하다는 피드백으로(요청 반영) 로고+브랜드를 카드
+    밖 맨 위 줄로 분리했다. 탭 버튼 로직은 그대로 두고 위치만 옮긴 것이라 각 버튼은
+    기존과 동일하게 session_state["main_tab"]만 바꾸고 st.rerun()한다.
     """
     current_tab = st.session_state.get("main_tab", "rerank")
-    col_logo, col_brand, col_b1, col_b2, col_b3, col_b4 = st.columns(
-        [0.6, 1.6, 1.3, 1.3, 1, 1], vertical_alignment="center"
-    )
+
+    # ── 로고 + 브랜드명 — 맨 위, nav 카드 밖에 독립된 줄로 ────────────────────────
+    col_logo, col_brand, _col_brand_spacer = st.columns([0.35, 1.2, 4], vertical_alignment="center")
     with col_logo:
-        st.image(str(_LOGO_PATH), width=96)
+        st.image(str(_LOGO_PATH), width=56)
     with col_brand:
         st.markdown(
             '<div class="topnav-brand">추크크'
@@ -110,39 +114,49 @@ def _render_top_navbar() -> None:
             "</div>",
             unsafe_allow_html=True,
         )
+
+    # ── 탭 버튼 — 참고 이미지(쇼핑몰 상단 텍스트 링크 메뉴)처럼 박스형 버튼 대신
+    # 필(pill) 카드로 감싼 텍스트 링크(요청 반영) — 마커로 이 네비바의 stHorizontalBlock만
+    # 정확히 짚어 CSS로 버튼 테두리/배경을 지운다(:has() 전역 매칭 버그를 피하려고 직계
+    # 자식(>) + 인접 형제(+)만 사용, app/static/style.css의 .topnav-marker 관련 규칙 참고).
+    st.markdown('<div class="topnav-marker"></div>', unsafe_allow_html=True)
+    col_b0, col_b1, col_b2, col_b3, col_spacer = st.columns(
+        [0.9, 0.9, 0.9, 0.7, 3], vertical_alignment="bottom"
+    )
+    with col_b0:
+        if st.button(
+            "프로젝트 소개",
+            key="topnav_project",
+            type="primary" if current_tab == "project" else "tertiary",
+        ):
+            st.session_state["main_tab"] = "project"
+            st.session_state["project_page"] = "intro"
+            st.session_state["view"] = "main"
+            st.rerun()
     with col_b1:
         if st.button(
             "Twiddler 재랭킹",
-            width="stretch",
-            type="primary" if current_tab == "rerank" else "secondary",
+            key="topnav_rerank",
+            type="primary" if current_tab == "rerank" else "tertiary",
         ):
             st.session_state["main_tab"] = "rerank"
             st.rerun()
     with col_b2:
         if st.button(
             "페르소나 기여도",
-            width="stretch",
-            type="primary" if current_tab == "persona" else "secondary",
+            key="topnav_persona",
+            type="primary" if current_tab == "persona" else "tertiary",
         ):
             st.session_state["main_tab"] = "persona"
             st.rerun()
     with col_b3:
         if st.button(
             "유저 목록",
-            width="stretch",
-            type="primary" if current_tab == "userlist" else "secondary",
+            key="topnav_userlist",
+            type="primary" if current_tab == "userlist" else "tertiary",
         ):
             st.session_state["main_tab"] = "userlist"
             st.rerun()
-    with col_b4:
-        if st.button(
-            "팀 소개",
-            width="stretch",
-            type="primary" if current_tab == "team" else "secondary",
-        ):
-            st.session_state["main_tab"] = "team"
-            st.rerun()
-    st.divider()
 
 
 # ── 사이드바 ───────────────────────────────────────────────────────────────────
@@ -172,29 +186,56 @@ def _setup_sidebar() -> tuple[list[str], set[str] | None, pd.DataFrame | None]:
     # 아무것도 체크 안 하면 전체(카테고리 레벨 필터만 적용 안 함, selected_types=None).
     selected_categories = ALL_CATEGORIES[:]
     selected_types: set[str] = set()
-    if current_tab not in ("team", "userlist") and st.session_state.get("view", "main") != "detail":
-        st.sidebar.markdown("**🏷️ 카테고리 필터**")
-        for category in ALL_CATEGORIES:
-            icon_url = category_icon_url(category)
-            header = (
-                f"![]({icon_url}) {category}"
-                if icon_url
-                else f"{CATEGORY_EMOJI[category]} {category}"
-            )
-            with st.sidebar.expander(header):
-                subtypes = CATEGORY_SUBTYPES.get(category, [])
-                all_key = f"subcat_all_{category}"
+    if current_tab == "project":
+        project_pages = [
+            ("프로젝트 소개", "intro"),
+            ("용어 해석", "glossary"),
+            ("팀 소개", "team"),
+        ]
+        current_project_page = st.session_state.get("project_page", "intro")
+        # 항상 펼쳐진(expanded=True) expander는 접었다 펼 일이 없는데도 체브론+박스
+        # 테두리가 붙어 "카테고리 필터"(제목만 있는 plain markdown)와 톤이 안 맞고,
+        # 버튼 사이 기본 세로 gap도 커서 부자연스럽다는 피드백(요청 반영) — 다른 사이드바
+        # 섹션과 같은 plain 제목 + 촘촘한 리스트로 바꾼다(gap은 .st-key-project_menu
+        # 스코프로 style.css에서 좁힌다).
+        st.sidebar.markdown("**프로젝트 안내**")
+        with st.sidebar.container(key="project_menu"):
+            for label, page_key in project_pages:
+                if st.button(
+                    label,
+                    key=f"project_page_{page_key}",
+                    type="primary" if current_project_page == page_key else "tertiary",
+                    width="stretch",
+                ):
+                    st.session_state["project_page"] = page_key
+                    st.rerun()
+    if current_tab in ("rerank", "persona") and st.session_state.get("view", "main") != "detail":
+        # 카테고리 필터 전체를 하나의 바깥 아코디언으로 감싸 접을 수 있게 한다(요청 반영).
+        # 개별 카테고리 아이콘/이모지는 그대로 두고, 바깥 아코디언 제목 앞의 "☰"만 뺀다
+        # (요청 반영). 이 Streamlit 버전은 expander 중첩을 지원한다(공식 문서는 권장하지
+        # 않는다고만 안내 — 실제 동작은 정상, 로컬에서 확인).
+        with st.sidebar.expander("카테고리 필터", expanded=True):
+            for category in ALL_CATEGORIES:
+                icon_url = category_icon_url(category)
+                header = (
+                    f"![]({icon_url}) {category}"
+                    if icon_url
+                    else f"{CATEGORY_EMOJI[category]} {category}"
+                )
+                with st.expander(header):
+                    subtypes = CATEGORY_SUBTYPES.get(category, [])
+                    all_key = f"subcat_all_{category}"
 
-                def _toggle_all(category=category, subtypes=subtypes, all_key=all_key):
-                    checked = st.session_state[all_key]
+                    def _toggle_all(category=category, subtypes=subtypes, all_key=all_key):
+                        checked = st.session_state[all_key]
+                        for subtype in subtypes:
+                            st.session_state[f"subcat_{category}_{subtype}"] = checked
+
+                    st.checkbox("전체", key=all_key, on_change=_toggle_all)
+                    st.markdown("<hr style='margin:0.1rem 0 0.4rem;'>", unsafe_allow_html=True)
                     for subtype in subtypes:
-                        st.session_state[f"subcat_{category}_{subtype}"] = checked
-
-                st.checkbox("전체", key=all_key, on_change=_toggle_all)
-                st.markdown("<hr style='margin:0.1rem 0 0.4rem;'>", unsafe_allow_html=True)
-                for subtype in subtypes:
-                    if st.checkbox(subtype, key=f"subcat_{category}_{subtype}"):
-                        selected_types.add(subtype)
+                        if st.checkbox(subtype, key=f"subcat_{category}_{subtype}"):
+                            selected_types.add(subtype)
         if selected_types:
             selected_categories = [
                 c
@@ -657,19 +698,12 @@ def _render_rerank_main(
         "아래에서 실제 수치로 확인하세요."
     )
 
-    # ── 유저 소개 (페르소나 선택 + 유저 선택) ──────────────────────────────
+    # ── 유저 소개 (페르소나 선택 + 유저 선택 + 통합 카드) ──────────────────────
     user_id, user_info = render_persona_and_user_selector(demo_users_df)
-    # "개별 유저" 카드를 "페르소나 특성" 카드보다 위로(요청 반영) — 이 시점엔 아직 모델/
-    # Twiddler phase가 안 정해졌으므로 twiddler_status 없이 표시(모델별 상세 상태는
-    # 아래 토글 버튼 자체가 보여준다). 원래 이 위치에서 모델별로 다시 렌더링하던 카드는
-    # 중복이라 제거했다.
-    render_user_card(
-        user_id,
-        user_info["persona_label"],
-        user_info["user_type_label"],
-        user_info["log_count"],
-    )
-    render_persona_card(user_info)
+    # 개별 유저 카드 + 페르소나 특성 카드가 같은 유저에 대한 정보인데 둘로 나뉘어
+    # 중복처럼 보인다는 피드백으로 하나로 통합했다(요청 반영). 이 시점엔 아직 모델/
+    # Twiddler phase가 안 정해졌으므로 twiddler_status는 생략(토글 버튼이 보여줌).
+    render_user_summary_card(user_id, user_info)
 
     try:
         products_df = load_products()
@@ -678,7 +712,7 @@ def _render_rerank_main(
         return
 
     # Twiddler 재랭킹 근거(alpha/decay/선호 카테고리)는 페르소나 기반이라 모델과 무관 —
-    # 아래 모델별 블록(개별 유저 카드 → 모델 토글 → ...)보다 위에서 한 번만 보여준다.
+    # 아래 모델별 블록보다 위에서 한 번만 보여준다.
     st.divider()
     render_user_twiddler_case(user_id)
     st.divider()
@@ -741,10 +775,7 @@ def _render_rerank_detail(demo_users_df: pd.DataFrame) -> None:
     # ── 유저 소개 — 메인 화면과 동일한 선택 위젯을 그대로 재사용해, 같은 상품에 대해
     #    페르소나/유저를 바꿔가며 보완재 추천 결과를 비교할 수 있게 한다 ──────────
     user_id, user_info = render_persona_and_user_selector(demo_users_df)
-    render_persona_card(user_info)
-    render_user_card(
-        user_id, user_info["persona_label"], user_info["user_type_label"], user_info["log_count"]
-    )
+    render_user_summary_card(user_id, user_info)
     render_user_twiddler_case(user_id)
     st.divider()
 
@@ -849,10 +880,7 @@ def _render_persona_tab(
     )
 
     user_id, user_info = render_persona_and_user_selector(demo_users_df)
-    render_persona_card(user_info)
-    render_user_card(
-        user_id, user_info["persona_label"], user_info["user_type_label"], user_info["log_count"]
-    )
+    render_user_summary_card(user_id, user_info)
 
     # Twiddler 재랭킹 탭의 "Twiddler 재랭킹 근거"와 같은 위치(유저 카드 바로 아래) —
     # 이 탭에서는 아직 근거 대신 준비 중 안내를 보여준다(요청 반영: 위치 통일).
@@ -924,6 +952,9 @@ def main() -> None:
     if "main_tab" not in st.session_state:
         # 접속 시 기본 진입 탭 — Twiddler 재랭킹(요청 반영).
         st.session_state["main_tab"] = "rerank"
+    if st.session_state.get("main_tab") in ("glossary", "team"):
+        st.session_state["project_page"] = st.session_state["main_tab"]
+        st.session_state["main_tab"] = "project"
 
     _render_top_navbar()
     selected_categories, selected_types, demo_users_df = _setup_sidebar()
@@ -941,10 +972,16 @@ def main() -> None:
             _render_rerank_detail(demo_users_df)
     elif main_tab == "persona":
         _render_persona_tab(selected_categories, selected_types, demo_users_df)
-    elif main_tab == "team":
-        render_team_page()
     elif main_tab == "userlist":
         render_user_list(demo_users_df)
+    elif main_tab == "project":
+        project_page = st.session_state.get("project_page", "intro")
+        if project_page == "glossary":
+            render_glossary()
+        elif project_page == "team":
+            render_team_page()
+        else:
+            render_project_intro()
 
 
 main()

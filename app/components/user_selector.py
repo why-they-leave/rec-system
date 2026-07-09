@@ -104,46 +104,41 @@ def render_persona_and_user_selector(demo_users_df: pd.DataFrame) -> tuple[int, 
     return int(selected_id), user_info
 
 
-def render_persona_card(user_info: dict) -> None:
-    """페르소나 특성 카드 — 세그먼트 비중 배지(우측) + 설명(요청 반영: st.info 대신 커스텀
-    박스로 바꿔 배지를 헤더 우측에 나란히 배치할 수 있게 함, style.css의 .persona-card*).
+def render_user_summary_card(
+    user_id: int,
+    user_info: dict,
+    twiddler_status: str | None = None,
+) -> None:
+    """개별 유저 카드 + 페르소나 특성 카드를 하나로 통합(요청 반영: 같은 유저에 대한
+    정보인데 카드 2개로 나뉘어 있어 중복처럼 보인다는 UI 피드백).
+
+    카드 내부 순서는 페르소나 특성(페르소나가 같으면 유저가 바뀌어도 그대로) → 개별
+    유저(유저마다 바뀜)로 둔다(요청 반영: 이 카드 위의 페르소나 선택과, 아래의 Twiddler
+    재랭킹 근거가 각각 "페르소나 단위"·"유저 단위" 정보라 그 사이에 낀 이 카드도 같은
+    기준으로 위/아래를 나눠야 전체 화면이 페르소나 정보 묶음 → 유저별로 바뀌는 정보
+    묶음 순서로 일관된다).
+    twiddler_status가 없으면(모델/phase 미확정 시점) 그 부분만 생략한다.
     """
     persona_label = user_info["persona_label"]
     persona_ko = PERSONA_KO.get(persona_label, "")
     persona_name = f"{persona_label} ({persona_ko})" if persona_ko else persona_label
-    st.markdown(
-        f'<div class="persona-card">'
-        f'<div class="persona-card-header">'
-        f'<span class="persona-card-title">페르소나 특성</span>'
-        f'<span class="badge badge-segment">세그먼트 {user_info["persona_pct"]:.1f}%</span>'
-        f'</div>'
-        f'<div class="persona-card-name">{persona_name}</div>'
-        f'<div class="persona-card-desc">{user_info["persona_desc"]}</div>'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
-
-
-def render_user_card(
-    user_id: int,
-    persona_label: str,
-    user_type_label: str,
-    log_count: int,
-    twiddler_status: str | None = None,
-) -> None:
-    """개별 유저 요약 카드 — 아바타(사람 대신 유저 번호 원형) + 유형·로그·Twiddler 상태를
-    한 줄에 통합(요청 반영: 기존엔 subheader + markdown 3줄 + 별도 st.metric 2개로 흩어져
-    있었음). twiddler_status가 없으면(예: 상세/페르소나 탭처럼 토글이 없는 화면) 그 부분만
-    생략한다.
-    """
     status_part = f" · Twiddler: {twiddler_status}" if twiddler_status else ""
     st.markdown(
         f'<div class="user-summary-card">'
+        f'<div class="persona-card-name">{persona_name}</div>'
+        f'<div class="persona-card-desc">{user_info["persona_desc"]}</div>'
+        f'<div class="user-summary-divider"></div>'
+        f'<div class="user-summary-header">'
         f'<div class="user-summary-avatar">{user_id}</div>'
         f"<div>"
         f'<div class="user-summary-label">🧑 개별 유저</div>'
         f'<div class="user-summary-name">User {user_id:03d} · {persona_label}</div>'
-        f'<div class="user-summary-meta">{user_type_label.upper()} · 로그 {log_count:,}건{status_part}</div>'
-        f"</div></div>",
+        f'<div class="user-summary-meta">'
+        f'{user_info["user_type_label"].upper()} · 로그 {user_info["log_count"]:,}건{status_part}'
+        f"</div></div>"
+        f'<span class="badge badge-segment user-summary-segment">'
+        f'세그먼트 {user_info["persona_pct"]:.1f}%</span>'
+        f"</div>"
+        f"</div>",
         unsafe_allow_html=True,
     )

@@ -240,16 +240,18 @@ def render_eval_metrics(context: str, persona_label: str | None = None) -> None:
     )
 
 
-def render_user_twiddler_case(user_id: int) -> None:
+def render_user_twiddler_case(user_id: int, heading: str = "Twiddler 재랭킹 근거") -> None:
     """선택된 유저 1명의 실제 Twiddler 재랭킹 근거(alpha/decay/선호 카테고리)를 보여준다.
 
     population 평균 지표(HR/NDCG)와 달리 유저 1명 기준으로는 HR/NDCG가 0 또는 1의 노이즈성
     값이라 "정확도"로 보여주지 않는다 — 대신 실제로 계산된 재랭킹 파라미터 자체를 보여줘
     "이 유저에게 왜 이렇게 재정렬됐는지"를 설명한다(아래 before/after 카드 비교의 근거 숫자).
+
+    heading: 호출부에서 번호(예: "2. Twiddler 재랭킹 근거")를 붙이고 싶을 때 넘긴다.
     """
     # 유저 번호/페르소나는 위쪽 페르소나·유저 카드에 이미 표시되므로 여기서는 반복하지
     # 않고 섹션 라벨만 짧게 둔다(요청 반영: "반복 헤딩 없이").
-    st.markdown('<div class="section-label">Twiddler 재랭킹 근거</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="section-label">{heading}</div>', unsafe_allow_html=True)
     case = get_user_twiddler_case(user_id)
     if case is None:
         st.caption(
