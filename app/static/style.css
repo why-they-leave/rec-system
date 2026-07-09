@@ -132,8 +132,9 @@
     margin-bottom: 2px;
 }
 .product-match-pill {
-    /* "같이 구매한 상품" 버튼 글씨 크기(1rem/16px)와 맞춤(요청 반영) */
-    font-size: 1rem;
+    /* "같이 구매한 상품" 버튼 글씨 크기와 맞춤(요청 반영) — 팀원이 버튼 크기를
+     * 0.8rem으로 다시 조정해서(상품명 크기와 통일) 이쪽도 같이 맞춘다. */
+    font-size: 0.8rem;
     font-weight: 800;
     color: #6366f1;
 }
