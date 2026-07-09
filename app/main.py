@@ -182,7 +182,19 @@ def _setup_sidebar() -> tuple[list[str], set[str] | None, pd.DataFrame | None]:
                 else f"{CATEGORY_EMOJI[category]} {category}"
             )
             with st.sidebar.expander(header):
-                for subtype in CATEGORY_SUBTYPES.get(category, []):
+                subtypes = CATEGORY_SUBTYPES.get(category, [])
+                all_key = f"subcat_all_{category}"
+
+                def _toggle_all(category=category, subtypes=subtypes, all_key=all_key):
+                    checked = st.session_state[all_key]
+                    for subtype in subtypes:
+                        st.session_state[f"subcat_{category}_{subtype}"] = checked
+
+                st.checkbox("전체", key=all_key, on_change=_toggle_all)
+                st.markdown(
+                    "<hr style='margin:0.1rem 0 0.4rem;'>", unsafe_allow_html=True
+                )
+                for subtype in subtypes:
                     if st.checkbox(subtype, key=f"subcat_{category}_{subtype}"):
                         selected_types.add(subtype)
         if selected_types:
