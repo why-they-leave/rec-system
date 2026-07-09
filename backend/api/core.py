@@ -33,7 +33,9 @@ def get_main_recommendation_items(
     반환: (items, status, message, response_model_type, response_twiddler).
     model_type="LightGCN"일 때만 graph_type이 의미를 가진다("bipartite" | "tripartite").
     response_model_type은 LightGCN인 경우 "LightGCN-<graph_type>"으로 반환해 어떤 변형인지 구분한다.
-    response_twiddler는 LightGCN인 경우 항상 "before"로 강제된다(Twiddler 미적용).
+    LightGCN-bipartite는 ALS와 동일하게 Twiddler를 적용한다(precomputed 추천 결과에
+    rule-based 재랭킹만 얹는 방식이라 twiddler_service가 그대로 재사용 가능). 그 외
+    LightGCN 변형(tripartite, 아직 미구현)은 response_twiddler가 항상 "before"로 강제된다.
     """
     if model_type == "ALS":
         fetch_n = top_n * POOL_MULTIPLIER if twiddler == "after" else top_n
@@ -43,6 +45,16 @@ def get_main_recommendation_items(
                 items, twiddler, user_id, id_key="item_id", context="main", top_k=top_n
             )
         response_model_type = model_type
+        response_twiddler = twiddler
+    elif model_type == "LightGCN" and graph_type == "bipartite":
+        fetch_n = top_n * POOL_MULTIPLIER if twiddler == "after" else top_n
+        items, status, message = lightgcn_service.get_recommendations(user_id, fetch_n, graph_type)
+        if status == "ok":
+            items, status, message = twiddler_service.apply_twiddler(
+                items, twiddler, user_id, id_key="item_id",
+                context="main_lightgcn_bipartite", top_k=top_n,
+            )
+        response_model_type = f"LightGCN-{graph_type}"
         response_twiddler = twiddler
     else:
         items, status, message = lightgcn_service.get_recommendations(user_id, top_n, graph_type)

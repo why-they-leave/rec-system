@@ -18,6 +18,7 @@ def recommend_main(
     model_type="LightGCN"일 때만 graph_type이 의미를 가진다:
     "bipartite"(유저-아이템, 페르소나 미포함) 또는 "tripartite"(유저-아이템-페르소나).
     응답의 model_type은 LightGCN인 경우 "LightGCN-<graph_type>"으로 반환해 어떤 변형인지 구분한다.
+    LightGCN-bipartite는 ALS와 동일하게 twiddler 파라미터가 적용된다(그 외 LightGCN 변형은 미적용).
 
     실제 오케스트레이션 로직은 backend/api/core.py에 있다 — app/utils/data_loader.py가
     Streamlit 프로세스 안에서 이 HTTP 계층을 거치지 않고 그 함수를 직접 호출한다.
