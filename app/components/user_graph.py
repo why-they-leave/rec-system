@@ -13,8 +13,8 @@ import base64
 
 import pandas as pd
 import streamlit as st
-from pyvis.network import Network
 from components.user_selector import PERSONA_KO
+from pyvis.network import Network
 from utils.category_emoji import extract_color, get_product_emoji, product_type_from_name
 from utils.data_loader import get_user_subgraph, load_products
 from utils.product_icons import icon_color_filter, icon_data_uri, icon_slug_for
@@ -39,9 +39,9 @@ _FONT_COLOR = "#1a1a1a"
 _COLOR_USER = "#818cf8"
 _COLOR_PRODUCT_PURCHASED = "#22c55e"
 _COLOR_PRODUCT_VIEWED = "#94a3b8"
-_COLOR_PRODUCT_HOP2 = "#cbd5e1"      # 2홉 확장 상품(유저 본인 행동 아님) — 더 옅은 색
+_COLOR_PRODUCT_HOP2 = "#cbd5e1"  # 2홉 확장 상품(유저 본인 행동 아님) — 더 옅은 색
 _COLOR_SEGMENT = "#f59e0b"
-_COLOR_SEGMENT_OWN = "#ef4444"       # 유저 본인 세그먼트 강조
+_COLOR_SEGMENT_OWN = "#ef4444"  # 유저 본인 세그먼트 강조
 
 # 🧑(사람, 기본 노란빛 피부톤)로 — 👤(bust in silhouette)는 대부분의 이모지 폰트에서
 # 검정/짙은 회색 실루엣이라 배경이 밝아져도 아이콘 자체가 여전히 어두워 대비가 부족했다.
@@ -119,6 +119,7 @@ def _icon_circle_image(icon_slug: str, bg_color: str, product_color: str | None 
     b64 = base64.b64encode(svg.encode("utf-8")).decode("ascii")
     return f"data:image/svg+xml;base64,{b64}"
 
+
 # ── 범례 — 그래프 우측에 고정 배치되는 세로형 박스(요청 반영: 하단 텍스트 한 줄은 눈에
 # 안 띄어서 색상 스와치 + 박스 형태로 변경). render_user_graph()에서 st.columns로 그래프
 # 옆(우측)에 배치한다. 폰트는 이전(0.85rem)보다 키운 1.1rem 유지.
@@ -158,7 +159,9 @@ def _lift_edge_width(lift: float) -> float:
 
 def _build_network(graph: dict, products_df: pd.DataFrame) -> Network:
     """그래프 dict(노드/엣지)를 pyvis Network로 변환하고 노드/엣지 스타일을 입힌다."""
-    product_lookup = products_df.set_index("item_id")[["name", "category", "price_usd"]].to_dict("index")
+    product_lookup = products_df.set_index("item_id")[["name", "category", "price_usd"]].to_dict(
+        "index"
+    )
 
     net = Network(
         height=f"{_GRAPH_HEIGHT_PX}px",
@@ -168,8 +171,8 @@ def _build_network(graph: dict, products_df: pd.DataFrame) -> Network:
         directed=True,
         notebook=False,
         cdn_resources="in_line",  # HTML에 vis-network 리소스를 인라인 임베드
-                                   # → lib/ 폴더를 디스크에 따로 쓰지 않음(읽기전용에 가까운
-                                   # 배포 환경에서도 안전, 임시파일 불필요).
+        # → lib/ 폴더를 디스크에 따로 쓰지 않음(읽기전용에 가까운
+        # 배포 환경에서도 안전, 임시파일 불필요).
     )
 
     for node in graph["nodes"]:
@@ -177,10 +180,16 @@ def _build_network(graph: dict, products_df: pd.DataFrame) -> Network:
             # 상품 노드와 동일하게 색상 원 위에 아이콘(사람 이모지)을 그린 circularImage로 —
             # 유저 노드도 한눈에 "이게 중심 유저"라고 알아볼 수 있게 한다(요청 반영).
             net.add_node(
-                node["node_id"], label=node["label"], title=node["label"],
-                shape="circularImage", image=_emoji_circle_image(_USER_EMOJI, _COLOR_USER),
-                color=_COLOR_USER, size=_SIZE_USER,
-                physics=False, x=0, y=0,  # 중심 고정 — 레이아웃이 흔들려도 유저 노드는 항상 중앙
+                node["node_id"],
+                label=node["label"],
+                title=node["label"],
+                shape="circularImage",
+                image=_emoji_circle_image(_USER_EMOJI, _COLOR_USER),
+                color=_COLOR_USER,
+                size=_SIZE_USER,
+                physics=False,
+                x=0,
+                y=0,  # 중심 고정 — 레이아웃이 흔들려도 유저 노드는 항상 중앙
             )
         elif node["node_type"] == "product":
             info = product_lookup.get(node["ref_id"], {})
@@ -204,8 +213,13 @@ def _build_network(graph: dict, products_df: pd.DataFrame) -> Network:
             else:
                 image = _emoji_circle_image(get_product_emoji(name, category), color)
             net.add_node(
-                node["node_id"], label=_HIDDEN_LABEL, title=title, shape="circularImage",
-                image=image, color=color, size=size,
+                node["node_id"],
+                label=_HIDDEN_LABEL,
+                title=title,
+                shape="circularImage",
+                image=image,
+                color=color,
+                size=size,
             )
         else:  # segment
             color = _COLOR_SEGMENT_OWN if node.get("is_own_segment") else _COLOR_SEGMENT
@@ -220,28 +234,55 @@ def _build_network(graph: dict, products_df: pd.DataFrame) -> Network:
                 label = f"세그먼트 {node['ref_id']}"
                 title = label
             net.add_node(
-                node["node_id"], label=label, title=title,
-                color=color, size=_SIZE_SEGMENT, shape="diamond",
+                node["node_id"],
+                label=label,
+                title=title,
+                color=color,
+                size=_SIZE_SEGMENT,
+                shape="diamond",
             )
 
     for edge in graph["edges"]:
         edge_type = edge["edge_type"]
         if edge_type == "purchased":
-            net.add_edge(edge["source"], edge["target"], color=_COLOR_PRODUCT_PURCHASED,
-                         width=_EDGE_WIDTH_PURCHASED, dashes=False, title="구매")
+            net.add_edge(
+                edge["source"],
+                edge["target"],
+                color=_COLOR_PRODUCT_PURCHASED,
+                width=_EDGE_WIDTH_PURCHASED,
+                dashes=False,
+                title="구매",
+            )
         elif edge_type == "viewed":
-            net.add_edge(edge["source"], edge["target"], color=_COLOR_PRODUCT_VIEWED,
-                         width=_EDGE_WIDTH_VIEWED, dashes=True, title="조회 등")
+            net.add_edge(
+                edge["source"],
+                edge["target"],
+                color=_COLOR_PRODUCT_VIEWED,
+                width=_EDGE_WIDTH_VIEWED,
+                dashes=True,
+                title="조회 등",
+            )
         elif edge_type == "own_segment":
             # label(상시 표시)이 도착 세그먼트 노드의 라벨과 겹쳐 보였다(요청으로 발견) —
             # title(hover 툴팁)로만 노출한다.
-            net.add_edge(edge["source"], edge["target"], color=_COLOR_SEGMENT_OWN,
-                         width=_EDGE_WIDTH_VIEWED, dashes=True, title="소속 세그먼트")
+            net.add_edge(
+                edge["source"],
+                edge["target"],
+                color=_COLOR_SEGMENT_OWN,
+                width=_EDGE_WIDTH_VIEWED,
+                dashes=True,
+                title="소속 세그먼트",
+            )
         else:  # "lift"
             lift = edge.get("lift") or 0.0
-            net.add_edge(edge["source"], edge["target"], color=_COLOR_SEGMENT,
-                         width=_lift_edge_width(lift),
-                         label=f"lift {lift:.2f}", title=f"lift {lift:.2f}")
+            net.add_edge(
+                edge["source"],
+                edge["target"],
+                color=_COLOR_SEGMENT,
+                width=_lift_edge_width(lift),
+                label=f"lift {lift:.2f}",
+                title=f"lift {lift:.2f}",
+            )
 
     # 화살촉이 라벨을 가리는 문제 + 노드/라벨 밀집으로 인한 혼동(요청으로 발견) — 화살촉을
     # 더 작게, 반발력(gravitationalConstant)과 스프링 길이를 한 번 더 키워 노드 간 간격을
@@ -283,7 +324,7 @@ def _patch_iframe_background(html: str) -> str:
 
 def render_user_graph(user_id: int) -> None:
     """유저 중심 추천 근거 서브그래프(유저→상품→세그먼트)를 pyvis로 렌더링."""
-    st.markdown("#### 🕸️ 추천 근거 그래프")
+    st.markdown("#### 추천 근거 그래프")
 
     show_hop2 = st.toggle(
         "2홉까지 보기 (같은 세그먼트의 다른 인기 상품 포함)",

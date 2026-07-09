@@ -56,6 +56,32 @@
     padding-top: 0.2rem !important;
 }
 
+/* ===== 페이지 제목(h1) 바로 아래 설명 캡션 — 글씨 키우고 볼드 =====
+ * st.title() 바로 다음에 오는 st.caption()만 정확히 겨냥한다(인접 형제 결합자) —
+ * 카드 안의 다른 잔글씨 캡션("카테고리 편차 0.357 · ...", HR@K 해석 문구 등)은
+ * 건드리지 않는다(요청 반영: "큰 페이지 제목 아래 있는 설명들 글씨 크기 좀만 더
+ * 키우고 볼드처리"). Playwright로 실제 DOM에서 stElementContainer끼리 바로 인접
+ * 형제임을 확인(추가 래퍼 없음) — 다만 stCaptionContainer 자체가 아니라 그 안의
+ * <p>가 Streamlit 기본 font-weight(400)를 따로 갖고 있어서, 부모만 굵게 줘도 실제
+ * 글씨는 안 굵어 보였다(요청으로 재확인, 새로고침해도 안 바뀐 원인) — p까지 짚는다.
+ */
+[data-testid="stMain"] [data-testid="stElementContainer"]:has([data-testid="stHeading"] h1)
+    + [data-testid="stElementContainer"] [data-testid="stCaptionContainer"],
+[data-testid="stMain"] [data-testid="stElementContainer"]:has([data-testid="stHeading"] h1)
+    + [data-testid="stElementContainer"] [data-testid="stCaptionContainer"] p {
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    color: #334155 !important;
+}
+/* 이 캡션과 바로 아래 위젯("페르소나 선택" 등) 사이 간격이 좁아 붙어 보인다는
+ * 피드백(요청 반영: "bigraph는~ 문장이랑 페르소나 선택 사이에 간격 늘려줘. 다른
+ * 페이지도 마찬가지야") — h1 바로 다음 캡션에만 스코프가 잡혀 있어 이 구조를 쓰는
+ * 모든 페이지에 공통 적용된다. 전역 세로 gap(0.85rem)에 추가로 여백을 더한다. */
+[data-testid="stMain"] [data-testid="stElementContainer"]:has([data-testid="stHeading"] h1)
+    + [data-testid="stElementContainer"]:has([data-testid="stCaptionContainer"]) {
+    margin-bottom: 0.75rem !important;
+}
+
 /* ===== st.metric 값 글씨 크기 축소 =====
  * 앱 전체에 st.metric 호출이 5곳뿐(유저 유형/Twiddler 상태, Rule 1/2 강도·선호 카테고리
  * — app/main.py, app/components/eval_metrics_table.py)이라 전역 셀렉터로도 다른 메트릭과
@@ -280,6 +306,13 @@
     justify-content: center !important;
     transition: background-color 0.15s ease, color 0.15s ease;
 }
+/* 버튼에 font-weight:800을 줘도 실제 "Before"/"After" 글자는 button > div > p에
+ * 렌더되고 그 p가 Streamlit 자체 font-weight로 상속을 덮어써서 안 먹는다(요청으로
+ * 확인, 위 detail 버튼과 동일한 원인) — p까지 직접 짚어야 실제로 볼드가 적용된다. */
+[data-testid="stElementContainer"]:has(.twiddler-toggle-marker)
+    + [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] button p {
+    font-weight: 800 !important;
+}
 [data-testid="stElementContainer"]:has(.twiddler-toggle-marker)
     + [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] [kind="secondary"] {
     background: transparent !important;
@@ -293,6 +326,17 @@
 [data-testid="stElementContainer"]:has(.twiddler-toggle-marker)
     + [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] button:disabled {
     opacity: 0.55 !important;
+}
+
+/* ===== ALS / LightGCN bipartite 모델 선택 토글 — 글씨 볼드(요청 반영) =====
+ * button에 font-weight를 줘도 실제 라벨은 button > div > p에 렌더되고 그 p가
+ * Streamlit 자체 font-weight로 상속을 덮어써서 안 먹는다(위 Before/After 토글과
+ * 동일한 원인) — p까지 같이 짚는다. */
+[class*="st-key-rerank_model_als_btn"] button,
+[class*="st-key-rerank_model_als_btn"] button p,
+[class*="st-key-rerank_model_lgcn_btn"] button,
+[class*="st-key-rerank_model_lgcn_btn"] button p {
+    font-weight: 700 !important;
 }
 
 /* ===== 배지 ===== */
@@ -426,6 +470,38 @@
     color: #1a1a1a;
     text-align: left;
     margin-bottom: 4px;
+}
+
+/* ===== Twiddler 재랭킹 근거 카드 (alpha/decay/선호 카테고리) =====
+ * st.metric + 회색 테두리 상자 조합이 글씨도 작고 서로 안 구분돼 밋밋했다는 피드백
+ * (요청 반영: "디자인적으로 확 안들어와") — 아이콘 + 브랜드 컬러 상단 바 + 훨씬 큰
+ * 숫자로 된 커스텀 카드로 교체한다. */
+.twiddler-case-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin: 4px 0 8px;
+}
+.twiddler-case-card {
+    /* 카드 위 파란 보더 라인은 과하다는 피드백으로 제거(요청 반영) — 다른 카드와
+     * 같은 톤의 얇은 회색 테두리만 남긴다. */
+    background: #ffffff;
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 14px 16px 16px;
+}
+.twiddler-case-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 6px;
+}
+.twiddler-case-value {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #1e1b4b;
+    line-height: 1.2;
+    word-break: keep-all;
 }
 
 /* ===== 현재 상품 가로형 카드 (상세 페이지) ===== */
@@ -984,9 +1060,13 @@
     padding: 18px 0 8px;
 }
 .intro-demo-copy {
+    /* justify-content: flex-start였을 때 헤드라인/설명/태그가 위쪽에 뭉쳐 있고 그
+     * 아래(오른쪽 미리보기 패널 하단까지)가 텅 비어 보인다는 피드백(요청 반영:
+     * "여기 너무 비어보여") — space-between으로 헤드라인은 위, 태그는 아래로 밀어
+     * 오른쪽 패널과 비슷한 세로 범위를 채운다. */
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
+    justify-content: space-between;
     min-height: 280px;
 }
 .intro-demo-kicker,
@@ -1239,4 +1319,55 @@
         grid-template-columns: 1fr;
         gap: 2px;
     }
+}
+
+/* ===== 용어 해석 페이지 =====
+ * st.subheader + 굵은 텍스트 나열이 밋밋하다는 피드백(요청 반영: "이쁘게 개선") —
+ * 섹션 제목에 아이콘+밑줄, 용어는 브랜드 컬러 왼쪽 테두리가 있는 카드 그리드로 바꾼다.
+ */
+.glossary-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #1e1b4b;
+    margin: 26px 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e0e7ff;
+}
+.glossary-section-title:first-of-type {
+    margin-top: 8px;
+}
+.glossary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 14px;
+    margin-bottom: 8px;
+}
+.glossary-term-card {
+    background: #ffffff;
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 14px 16px;
+}
+.glossary-term-name {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #4338ca;
+    margin-bottom: 6px;
+}
+.glossary-term-desc {
+    font-size: 0.85rem;
+    line-height: 1.65;
+    color: #334155;
+}
+.glossary-term-desc strong {
+    color: #b91c1c;
+}
+.glossary-term-desc code {
+    background: #f1f5f9;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 0.8rem;
 }

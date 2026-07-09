@@ -211,15 +211,11 @@ def render_user_summary_card(
         f"{persona_col}"
         f'<div class="{right_col_class}">'
         f'<div class="user-summary-header">'
-        f'<div class="user-summary-avatar">{user_id}</div>'
+        # 원형 아바타(숫자만 있고 정보량이 없음)와 "🧑 개별 유저" 라벨을 없애고,
+        # "User 00259"를 굵게 바로 보여준다(요청 반영).
         f"<div>"
-        f'<div class="user-summary-label">🧑 개별 유저</div>'
-        # 페르소나명은 바로 왼쪽 칸(persona-card-name)에 이미 나와 있어 여기 또 적으면
-        # 중복이다(요청 반영: "이미 페르소나 설명에서 말해주는데 중복으로 들어갈 필요
-        # 없는거같음") — 유저 번호만 남긴다.
-        f'<div class="user-summary-name">User {user_id:03d}</div>'
-        # HEAVY/COLD 뜻이 바로 안 보인다는 피드백(요청 반영) — 용어 해석 페이지에 정식
-        # 설명을 추가하고, 여기서는 hover 시 뜨는 title 툴팁으로 간단히 안내한다.
+        f'<div class="user-summary-name">User {user_id:05d}</div>'
+        # HEAVY/COLD 뜻은 바로 안 보인다는 피드백으로 hover 시 뜨는 title 툴팁 유지.
         f'<div class="user-summary-meta" '
         f'title="Heavy: 학습 기간 이벤트 10건 이상 / Cold: 10건 미만(인기도 기반 추천으로 대체)">'
         f'{user_info["user_type_label"].upper()} · 로그 {user_info["log_count"]:,}건{status_part}'

@@ -750,7 +750,6 @@ def _render_rerank_main(
         st.caption("추천 비교에 사용할 페르소나와 데모 유저를 선택합니다.")
         user_id, user_info = render_persona_and_user_selector(demo_users_df)
         render_user_summary_card(user_id, user_info)
-        render_user_twiddler_case(user_id)
 
         # 선택 화면이 텍스트만 있어 밋밋하다는 피드백으로, 이 유저에게 Twiddler 적용
         # 전(before) 원래 보여지는 추천 상품을 미리보기로 깔아준다(요청 반영: "무작위로
@@ -759,7 +758,7 @@ def _render_rerank_main(
         st.divider()
         # 이 미리보기는 항상 ALS 기준으로 고정돼 있다(사이드바 모델 선택과 무관) —
         # 오해 없도록 라벨에 명시한다(요청 반영: "ALS 모델이라고 쓰라").
-        st.markdown("**ALS 모델 기본 추천 미리보기 (Twiddler 적용 전)**")
+        st.markdown("**Twiddler 적용 전 추천 (ALS 기준)**")
         try:
             products_df = load_products()
             preview_df, _, _ = get_main_recommendations(
@@ -793,11 +792,17 @@ def _render_rerank_main(
         return
 
     st.title("추천 비교")
-    render_user_summary_card(user_id, user_info, show_persona=False)
     st.caption(
         f"User {user_id:05d} · {user_info['user_type_label'].upper()} · "
         f"{user_info['persona_label']} 기준으로 Before/After 추천 순위를 비교합니다."
     )
+    render_user_summary_card(user_id, user_info, show_persona=False)
+    # "왜 이렇게 재정렬됐는지"(alpha/decay/선호 카테고리)는 실제 Before/After 비교
+    # 결과 바로 위에 있어야 근거-결과가 붙어 보인다(요청 반영: "재랭킹근거를 추천 결과
+    # 비교 페이지로 빼는게 더 맞지 않나?" — 기존엔 "유저 선택" 페이지에 따로 있어
+    # 실제 비교 결과와 떨어져 보였음).
+    render_user_twiddler_case(user_id)
+    st.divider()
 
     try:
         products_df = load_products()
