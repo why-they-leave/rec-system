@@ -207,6 +207,23 @@ def _setup_sidebar() -> tuple[list[str], set[str] | None, pd.DataFrame | None]:
                 ):
                     st.session_state["project_page"] = page_key
                     st.rerun()
+    if current_tab == "rerank" and st.session_state.get("view", "main") == "detail":
+        detail_pages = [
+            ("> 추천 결과 비교", "compare"),
+            ("> 오프라인 성능 지표", "metrics"),
+        ]
+        current_detail_page = st.session_state.get("rerank_detail_page", "compare")
+        with st.sidebar.expander("추천 비교 · 연관 상품", expanded=True):
+            for label, page_key in detail_pages:
+                if st.button(
+                    label,
+                    key=f"rerank_detail_page_{page_key}",
+                    type="primary" if current_detail_page == page_key else "tertiary",
+                    width="stretch",
+                ):
+                    st.session_state["rerank_detail_page"] = page_key
+                    st.rerun()
+
     if current_tab == "rerank" and st.session_state.get("view", "main") != "detail":
         # 순서상 유저를 먼저 골라야 나머지(비교/지표)가 의미가 있어서 "페르소나 및 유저
         # 선택"을 맨 위로 올렸다(요청 반영). "데모 안내"와 같은 plain 리스트 톤으로
@@ -843,11 +860,19 @@ def _render_rerank_detail(demo_users_df: pd.DataFrame) -> None:
         return
 
     # ── 유저 소개 — 메인 화면과 동일한 선택 위젯을 그대로 재사용해, 같은 상품에 대해
-    #    페르소나/유저를 바꿔가며 보완재 추천 결과를 비교할 수 있게 한다 ──────────
+    #    페르소나/유저를 바꿔가며 보완재 추천 결과를 비교할 수 있게 한다. 좌측 사이드바의
+    #    "추천 결과 비교"/"오프라인 성능 지표" 서브페이지와 무관하게 항상 공통으로 보여준다
+    #    (요청 반영: 유저 선택만은 별도 탭으로 안 빼고 지금처럼 유지).
     user_id, user_info = render_persona_and_user_selector(demo_users_df)
     render_user_summary_card(user_id, user_info)
     render_user_twiddler_case(user_id)
     st.divider()
+
+    detail_page = st.session_state.get("rerank_detail_page", "compare")
+    if detail_page == "metrics":
+        st.markdown("### 오프라인 성능 지표 (보완재 only vs 보완재+Twiddler)")
+        render_eval_metrics(context="detail", persona_label=user_info["persona_label"])
+        return
 
     try:
         products_df = load_products()
@@ -921,10 +946,6 @@ def _render_rerank_detail(demo_users_df: pd.DataFrame) -> None:
         ncols=4,
         show_detail_button=False,
     )
-
-    st.divider()
-    st.markdown("### 오프라인 성능 지표 (보완재 only vs 보완재+Twiddler)")
-    render_eval_metrics(context="detail", persona_label=user_info["persona_label"])
 
 
 # ── Tab 2: 페르소나 기여도 ──────────────────────────────────────────────────────
