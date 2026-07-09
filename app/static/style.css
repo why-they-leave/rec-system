@@ -317,3 +317,15 @@
     overflow-wrap: anywhere !important;
     line-height: 1.3 !important;
 }
+
+/* ===== 카테고리 필터 pill 아이콘 확대 =====
+ * st.pills 옵션의 markdown 이미지(![](url))는 기본적으로 폰트 높이(1em)에 맞춰
+ * 자동으로 축소되는데, 정사각형으로 크기를 통일한 뒤 보니 다소 작아 보였다(요청 반영) —
+ * 원래 크기(1em) 기준으로 2px만 균일하게 키운다. .st-key-cat_pill로 카테고리 필터
+ * pill에만 적용(다른 markdown 이미지는 영향 없음).
+ */
+.st-key-cat_pill img {
+    height: calc(1em + 2px) !important;
+    max-height: calc(1em + 2px) !important;
+    width: auto !important;
+}
