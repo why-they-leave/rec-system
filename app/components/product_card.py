@@ -6,6 +6,8 @@ hue-rotate)으로 물들여 표시 — 원형 배지 없이 아이콘 자체가 
 HTML은 <img> 한 줄뿐이라 st.markdown 파싱 문제 없음.
 """
 
+from collections.abc import Callable
+
 import pandas as pd
 import streamlit as st
 from utils.category_emoji import category_icon_url, extract_color
@@ -65,7 +67,7 @@ def _circle(color: str, product_type: str, size: int = 96) -> None:
     )
 
 
-def _photo_panel(color: str, product_type: str, category: str, size: int = 120) -> None:
+def _photo_panel(color: str, product_type: str, category: str, size: int = 160) -> None:
     """사진 패널 — 아이콘을 중앙에 크게 두고, 좌상단에 카테고리 아이콘을 작은 원형 배지로
     얹는다(참고 이미지의 "브랜드 로고 배지" 자리를 실제로 가진 데이터인 카테고리 아이콘으로
     대체 — 요청 반영: "우리한테 있는 구성요소로").
@@ -98,6 +100,7 @@ def render_product_card(
     rank_delta: dict | None = None,
     plain_rank_badge: int | None = None,
     rank_before: int | None = None,
+    footer: Callable[[], None] | None = None,
 ) -> None:
     """상품 카드 렌더링 — 커머스 앱(오늘의집 등) 카드 참고 레이아웃(요청 반영).
 
@@ -148,6 +151,11 @@ def render_product_card(
                 unsafe_allow_html=True,
             )
         _badge_widget(badge)  # 공통 추천 배지 — None이면 동일 높이 플레이스홀더
+        if footer:
+            # "연관 상품 보기" 버튼을 카드 바깥(별도 st.button)이 아니라 카드 테두리
+            # 안쪽에 넣어달라는 요청 반영 — 호출부(main.py)가 버튼 렌더링+클릭 처리를
+            # 콜백으로 넘기면 여기서 container(border=True) 블록이 닫히기 전에 호출한다.
+            footer()
 
 
 def render_current_product_card(item: pd.Series) -> None:

@@ -17,6 +17,17 @@
     padding-top: 4rem !important;
 }
 
+/* ===== 전체 세로 여백 =====
+ * 기본값(~1rem)은 너무 헐렁하다는 피드백으로 0.5rem까지 줄였다가, 이번엔 반대로
+ * 너무 빡빡하다는 피드백을 받아 그 중간값으로 다시 조정(요청 반영).
+ */
+[data-testid="stMain"] [data-testid="stVerticalBlock"] {
+    gap: 0.85rem !important;
+}
+[data-testid="stMain"] hr {
+    margin: 0.75rem 0 !important;
+}
+
 /* ===== 사이드바 로고 이미지 크기 축소 (기존 대비 가로세로 0.7배) =====
  * st.sidebar.image(width="stretch")는 사이드바 폭을 꽉 채우므로, 렌더 크기를 CSS로
  * 70%까지 줄이고 중앙 정렬한다(height:auto로 가로세로 비율 유지 — 0.7배는 두 축 모두
@@ -80,14 +91,17 @@
  * 아이콘, 순위변동 배지)으로만 채운다(요청 반영: "우리한테 있는 구성요소로").
  */
 .product-photo-panel {
+    /* 사진 배경은 투명, 카드 전체 배경을 대신 이 톤으로 칠한다(요청 반영,
+     * 카드 배경 규칙은 아래 stLayoutWrapper 셀렉터 참고). */
     position: relative;
-    border-radius: 10px;
-    background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+    border-radius: 0;
+    background: transparent;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 18px 0;
-    margin-bottom: 8px;
+    min-height: 170px;
+    padding: 6px 0;
+    margin-bottom: 4px;
 }
 .product-photo-badge {
     position: absolute;
@@ -115,7 +129,7 @@
     font-weight: 600;
     text-align: left;
     line-height: 1.3;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
@@ -125,7 +139,7 @@
     display: flex;
     align-items: baseline;
     gap: 6px;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
 .product-match-pill {
     font-size: 0.95rem;
@@ -144,7 +158,48 @@
     font-size: 0.75rem;
     color: var(--text-meta);
     text-align: left;
-    margin-bottom: 6px;
+    margin-bottom: 2px;
+}
+
+/* ===== 연관 상품 미리보기 (버튼 위, 각 아이콘을 별도 칸에) =====
+ * 크기 제한 없이 <img> 원본(수백~1000px+)을 그대로 넣었더니 카드가 통째로 거대해지는
+ * 버그가 있었다 — 각 칸을 고정 크기 정사각형으로 강제한다.
+ */
+.related-preview-row {
+    /* margin이 있으면 옆 st.button과 세로 위치가 어긋난다(요청으로 발견) — 버튼과
+     * 같은 기준선에 놓이도록 0으로 맞춘다. */
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 2.5rem;
+    min-width: 0;
+    overflow: hidden;
+    margin: 0;
+}
+.related-preview-cell {
+    /* 고정폭(2.5rem)이었더니 카드 폭이 좁을 때 칸 3개가 버튼 쪽으로 넘쳐서 겹쳐 보이는
+     * 문제가 있었다(요청으로 발견) — 남는 공간에 맞춰 줄어들도록 flex 기반으로 변경하고
+     * 최대 크기만 2.5rem으로 캡을 씌운다. 옆 st.button 기본 높이(2.5rem)와는 height로 맞춘다. */
+    box-sizing: border-box;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 2.5rem;
+    height: 2.5rem;
+    border: 1px solid var(--card-border);
+    border-radius: 5px;
+    background: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 3px;
+}
+.related-preview-cell img {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
 }
 
 /* ===== 배지 ===== */
@@ -228,11 +283,14 @@
 .user-summary-name  { font-size: 0.95rem; font-weight: 700; color: #0f172a; }
 .user-summary-meta  { font-size: 0.8rem; color: var(--text-meta); }
 
-/* ===== 섹션 라벨 (반복 헤딩 없이 짧게 — 예: "Twiddler 재랭킹 근거") ===== */
+/* ===== 섹션 라벨 (반복 헤딩 없이 짧게 — 예: "Twiddler 재랭킹 근거") =====
+ * 위아래 st.divider() 사이에 놓이는 라벨이라 그 폭 안에서 중앙정렬(요청 반영).
+ */
 .section-label {
     font-size: 0.85rem;
     font-weight: 600;
     color: var(--text-meta);
+    text-align: center;
     margin-bottom: 4px;
 }
 
@@ -335,12 +393,67 @@
     flex-direction: column !important;
 }
 
+/* ===== 카드 그리드: 카드끼리 붙여서(경계선 없이) 배치 =====
+ * 참고 이미지(쇼핑몰 그리드)처럼 카드 사이 테두리·그림자·간격을 없애 하나로 이어붙인
+ * 그리드로 보이게 한다(요청 반영). 위 블록과 동일한 DOM 스코프(마커 다음 형제)를 재사용 —
+ * 열 사이 gap을 0으로, st.container(border=True) 래퍼의 테두리/그림자/모서리를 제거한다.
+ */
+[data-testid="stElementContainer"]:has([data-card-grid])
+    ~ [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] {
+    gap: 0 !important;
+}
+[data-testid="stElementContainer"]:has([data-card-grid])
+    ~ [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"]
+    > [data-testid="stColumn"] {
+    padding: 0 !important;
+}
+[data-testid="stElementContainer"]:has([data-card-grid])
+    ~ [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"]
+    [data-testid="stColumn"],
+[data-testid="stElementContainer"]:has([data-card-grid])
+    ~ [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"]
+    [data-testid="stVerticalBlock"],
+[data-testid="stElementContainer"]:has([data-card-grid])
+    ~ [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"]
+    [data-testid="stLayoutWrapper"] {
+    border: none !important;
+    outline: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    /* 사진 패널이 투명해진 대신 카드 전체를 그 톤으로 칠한다(요청 반영). 페이지 배경(#f8fafc)과
+     * 톤이 겹쳐 테두리 없이는 카드 경계가 아예 안 보였다 — 단색으로 통일하고 페이지보다
+     * 눈에 띄게 진하게 줘서 테두리 없이도 카드 영역이 구분되게 한다. */
+    background: #ffffff !important;
+}
+/* 카드 안쪽 여백도 기본값(~1rem)이 커서 빈 공간이 두드러졌다 — 좁힌다(요청 반영). */
+[data-testid="stElementContainer"]:has([data-card-grid])
+    ~ [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"]
+    > [data-testid="stColumn"] [data-testid="stLayoutWrapper"] {
+    padding: 0.6rem !important;
+}
+/* ===== 카테고리 필터 아코디언 테두리 제거 (요청 반영: 카드와 동일하게) ===== */
+[data-testid="stSidebar"] [data-testid="stExpander"] {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+[data-testid="stSidebar"] [data-testid="stExpander"] > details {
+    border: none !important;
+}
+
 /* ===== 상단 네비게이션 바 (요청 반영: 사이드바 탭 버튼 → 상단바로 이동) ===== */
 .topnav-brand {
     font-size: 1.15rem;
     font-weight: 800;
     color: #0f172a;
-    line-height: 40px;
+    line-height: 1.2;
+}
+.topnav-brand-subtitle {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-meta);
 }
 
 /* ===== 사이드바: 배경 흰색 ===== */

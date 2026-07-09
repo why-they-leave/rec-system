@@ -65,6 +65,7 @@ from utils.data_loader import (  # noqa: E402
     reset_user_exposure,
     simulate_next_session,
 )
+from utils.product_icons import icon_slug_for, icon_url  # noqa: E402
 from utils.rank_delta import get_rank_delta  # noqa: E402
 from utils.style_loader import load_css  # noqa: E402
 
@@ -103,7 +104,12 @@ def _render_top_navbar() -> None:
     with col_logo:
         st.image(str(_LOGO_PATH), width=96)
     with col_brand:
-        st.markdown('<div class="topnav-brand">추크크</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="topnav-brand">추크크'
+            '<div class="topnav-brand-subtitle">Recommendation Creator Crew</div>'
+            "</div>",
+            unsafe_allow_html=True,
+        )
     with col_b1:
         if st.button(
             "Twiddler 재랭킹",
@@ -205,6 +211,59 @@ def _apply_filters(
 # ── 추천 그리드 ─────────────────────────────────────────────────────────────────
 
 
+def _related_preview_icon_urls(iid: int, products_df: pd.DataFrame | None) -> list[str]:
+    """실제 보완재 top-3의 라인아트 아이콘 URL 목록. 없으면 빈 리스트."""
+    urls = []
+    if products_df is None:
+        return urls
+    try:
+        preview_df, preview_status, _ = get_detail_recommendations(iid, top_n=3)
+    except FileNotFoundError:
+        return urls
+    if preview_status == "not_implemented" or preview_df.empty:
+        return urls
+    preview_items = preview_df.merge(
+        products_df,
+        left_on="rec_item_id",
+        right_on="item_id",
+        how="left",
+        suffixes=("", "_p"),
+    )
+    for _, row in preview_items.iterrows():
+        if pd.isna(row.get("name")):
+            continue
+        slug = icon_slug_for(product_type_from_name(row["name"]))
+        if slug:
+            urls.append(icon_url(slug))
+    return urls
+
+
+def _render_related_preview_button(
+    iid: int,
+    products_df: pd.DataFrame | None,
+    key: str,
+) -> bool:
+    """보완재 top-3 아이콘을 각각 별도 칸(테두리 있는 정사각형)에 나눠 보여준 뒤(요청
+    반영 — 한 줄에 뭉쳐 보이지 않게), 그 아래 기존 "연관 상품 보기" 텍스트 버튼을 그대로 둔다.
+
+    st.button 라벨은 unsafe_allow_html을 지원하지 않아 칸 구분(테두리)을 버튼 안에 못
+    넣는다 — 그래서 미리보기 칸들과 버튼을 st.columns로 한 줄에 나란히 배치한다(요청 반영).
+    """
+    icon_urls = _related_preview_icon_urls(iid, products_df)
+    if icon_urls:
+        # 버튼 칸이 좁으면 "같이 구매한 상품 ›" 문구가 두 줄로 잘려 보인다는 피드백
+        # 반영 — 버튼 쪽 비중을 넉넉히 키운다.
+        preview_col, button_col = st.columns([len(icon_urls) * 0.9, 5], vertical_alignment="center")
+        with preview_col:
+            cells = "".join(
+                f'<div class="related-preview-cell"><img src="{u}" /></div>' for u in icon_urls
+            )
+            st.markdown(f'<div class="related-preview-row">{cells}</div>', unsafe_allow_html=True)
+        with button_col:
+            return st.button("같이 구매한 상품 ›", key=key, width="stretch")
+    return st.button("같이 구매한 상품 ›", key=key, width="stretch")
+
+
 def _render_recommend_grid(
     items_df: pd.DataFrame,
     *,
@@ -214,8 +273,9 @@ def _render_recommend_grid(
     model_key: str = "",
     rank_before_map: dict | None = None,
     plain_rank_mode: bool = False,
-    ncols: int = 3,
+    ncols: int = 4,
     show_detail_button: bool = True,
+    products_df: pd.DataFrame | None = None,
 ) -> None:
     """상품 카드 그리드 렌더링. Twiddler 순위 변동 배지는 공유 유틸(get_rank_delta)로 계산.
 
@@ -241,8 +301,31 @@ def _render_recommend_grid(
                     score = float(item["score"])
                     rank = int(item["rank"])
 
+                    footer = None
+                    if show_detail_button:
+                        # "연관 상품 보기" 버튼을 카드 테두리 안쪽에 넣어달라는 요청 반영 —
+                        # render_product_card가 container(border=True) 블록을 닫기 전에
+                        # 이 콜백을 호출하도록 넘긴다.
+                        def footer(iid=iid):
+                            clicked = _render_related_preview_button(
+                                iid,
+                                products_df,
+                                key=f"detail_{user_id}_{iid}_{model_key}",
+                            )
+                            if clicked:
+                                st.session_state["view"] = "detail"
+                                st.session_state["selected_item_id"] = iid
+                                st.rerun()
+
                     if plain_rank_mode:
-                        render_product_card(item, rank, badge, score=score, plain_rank_badge=rank)
+                        render_product_card(
+                            item,
+                            rank,
+                            badge,
+                            score=score,
+                            plain_rank_badge=rank,
+                            footer=footer,
+                        )
                     else:
                         # rank_before_map이 주어졌다는 건 "비교 대상이 있다"는 뜻이므로, 그
                         # 안에 이 상품이 없으면 "비교 안 함"이 아니라 "직전 대비 새로 진입"이다
@@ -264,17 +347,8 @@ def _render_recommend_grid(
                             score=score,
                             rank_delta=rank_delta,
                             rank_before=rank_before,
+                            footer=footer,
                         )
-
-                    if show_detail_button:
-                        if st.button(
-                            "🔍 연관 상품 보기",
-                            key=f"detail_{user_id}_{iid}_{model_key}",
-                            width="stretch",
-                        ):
-                            st.session_state["view"] = "detail"
-                            st.session_state["selected_item_id"] = iid
-                            st.rerun()
 
 
 def _render_twiddler_toggle(key: str, effective_phase: str, *, disabled: bool = False) -> None:
@@ -355,7 +429,7 @@ def _render_rerank_model_toggle() -> str:
     col_als, col_lgcn = st.columns(2)
     with col_als:
         if st.button(
-            "🤖 ALS",
+            "ALS",
             key="rerank_model_als_btn",
             width="stretch",
             type="primary" if current == "ALS" else "secondary",
@@ -364,7 +438,7 @@ def _render_rerank_model_toggle() -> str:
             st.rerun()
     with col_lgcn:
         if st.button(
-            "🚀 LightGCN bipartite",
+            "LightGCN bipartite",
             key="rerank_model_lgcn_btn",
             width="stretch",
             type="primary" if current == "LightGCN-bipartite" else "secondary",
@@ -536,6 +610,7 @@ def _render_model_twiddler_block(
             user_id=user_id,
             model_key=f"{session_prefix}_sim_round{sim_round}",
             rank_before_map=sim_rank_before_map,
+            products_df=products_df,
         )
     else:
         if sim_round > 0:
@@ -551,6 +626,7 @@ def _render_model_twiddler_block(
             model_key=f"{session_prefix}_{twiddler_phase.lower()}",
             rank_before_map=None if twiddler_phase == "Before" else rank_before_map,
             plain_rank_mode=(twiddler_phase == "Before"),
+            products_df=products_df,
         )
 
     st.divider()
@@ -579,7 +655,6 @@ def _render_rerank_main(
     )
 
     # ── 유저 소개 (페르소나 선택 + 유저 선택) ──────────────────────────────
-    st.markdown("---")
     user_id, user_info = render_persona_and_user_selector(demo_users_df)
     render_persona_card(user_info)
 
@@ -591,6 +666,7 @@ def _render_rerank_main(
 
     # Twiddler 재랭킹 근거(alpha/decay/선호 카테고리)는 페르소나 기반이라 모델과 무관 —
     # 아래 모델별 블록(개별 유저 카드 → 모델 토글 → ...)보다 위에서 한 번만 보여준다.
+    st.divider()
     render_user_twiddler_case(user_id)
     st.divider()
 
@@ -605,7 +681,7 @@ def _render_rerank_main(
             graph_type="tripartite",
             session_prefix="als",
             exposure_context="main",
-            section_title="🤖 ALS",
+            section_title="ALS",
             eval_label="ALS",
             eval_context="main",
             gate_cold_users=True,
@@ -621,7 +697,7 @@ def _render_rerank_main(
             graph_type="bipartite",
             session_prefix="lgcn_bipartite",
             exposure_context="main_lightgcn_bipartite",
-            section_title="🚀 LightGCN bipartite",
+            section_title="LightGCN bipartite",
             eval_label="LightGCN bipartite",
             eval_context="main_lightgcn_bipartite",
             gate_cold_users=False,
@@ -753,8 +829,12 @@ def _render_persona_tab(
     로직 변경 없이 그대로 이관. 하단 서브그래프는 reports/USER_GRAPH_VIZ_PLAN.md 참고.
     """
     st.title("페르소나 기여도 (bi-graph vs tri-graph)")
+    st.caption(
+        "bi-graph는 유저-상품 관계만, tri-graph는 여기에 페르소나 노드를 추가로 연결해 "
+        "학습합니다. 두 그래프의 추천 결과를 비교하면 페르소나 정보가 추천 정확도에 "
+        "실제로 기여하는지 확인할 수 있습니다."
+    )
 
-    st.markdown("---")
     user_id, user_info = render_persona_and_user_selector(demo_users_df)
     render_persona_card(user_info)
     render_user_card(
@@ -815,6 +895,7 @@ def _render_persona_tab(
         id_key="item_id",
         user_id=user_id,
         model_key=f"gcn_{graph_phase}",
+        products_df=products_df,
     )
 
     st.divider()
