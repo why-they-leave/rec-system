@@ -106,7 +106,9 @@ def get_main_recommendations(
     return df, status, message
 
 
-def simulate_next_session(user_id: int, top_n: int = 10) -> tuple[pd.DataFrame, str, str | None]:
+def simulate_next_session(
+    user_id: int, top_n: int = 10, model_type: str = "ALS", graph_type: str = "tripartite",
+) -> tuple[pd.DataFrame, str, str | None]:
     """새로고침 시뮬레이션 전용 — 캐시를 붙이지 않는다.
 
     get_main_recommendations()는 @st.cache_data(ttl=30)라 30초 내 같은 인자로 다시 부르면
@@ -114,9 +116,12 @@ def simulate_next_session(user_id: int, top_n: int = 10) -> tuple[pd.DataFrame, 
     호출되지 않으니 exposure_service.record_exposure도 호출 안 돼 "버튼을 누를 때마다 다음
     라운드로 진행"하는 시뮬레이션 의도가 깨진다. 이 함수는 캐시 없이 매 호출마다 실제로
     backend.api.core를 다시 타서 노출 이력이 실제로 누적되게 한다.
+
+    model_type/graph_type: ALS(기본값) 또는 LightGCN-bipartite(model_type="LightGCN",
+    graph_type="bipartite") 새로고침 시뮬레이션에서 재사용한다.
     """
     items, status, message, response_model_type, response_twiddler = get_main_recommendation_items(
-        user_id, "ALS", twiddler="after", top_n=top_n
+        user_id, model_type, graph_type, twiddler="after", top_n=top_n
     )
     df = _main_rec_df(user_id, items, response_model_type, response_twiddler)
     return df, status, message

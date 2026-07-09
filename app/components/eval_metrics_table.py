@@ -11,6 +11,9 @@ _ALL_SEGMENTS_LABEL = "ALL"
 _CONDITION_LABELS: dict[str, dict[str, str]] = {
     "main": {"baseline": "ALS only", "twiddler": "ALS+Twiddler"},
     "detail": {"baseline": "보완재 only", "twiddler": "보완재+Twiddler"},
+    "main_lightgcn_bipartite": {
+        "baseline": "LightGCN bipartite only", "twiddler": "LightGCN bipartite+Twiddler",
+    },
 }
 # baseline/twiddler 2계열 고정 색상 — seaborn "colorblind" 팔레트 첫 두 색(파랑/주황)과
 # 동일한 CVD-safe 조합(오늘 노트북들이 쓴 PALETTE와 통일, 카테고리 색은 절대 순환하지 않음).
