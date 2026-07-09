@@ -231,6 +231,70 @@
     padding-bottom: 0 !important;
 }
 
+/* ===== Twiddler Before/After 토글 — 넓은 버튼 1개 대신 압축형 세그먼트 필 2개 =====
+ * 프로젝트 소개 페이지 미리보기 목업(.intro-preview-toolbar)과 톤을 맞춘 실제 토글
+ * (요청 반영: "그 버튼 부분 실제 페이지에 반영"). 마커+인접 형제 패턴으로 이 토글의
+ * stHorizontalBlock만 정확히 짚어 다른 곳 버튼에는 안 새어나가게 한다. */
+/* 이 토글은 col_toggle(마커로 시작) / col_sim(버튼으로 바로 시작) 두 칸짜리 바깥 행의
+ * 왼쪽 칸에 들어간다 — 연관상품 미리보기 때와 같은 원인으로, 마커(markdown)로 시작하는
+ * stColumn에만 Streamlit이 margin-top: 8px를 붙여 옆 새로고침 버튼보다 아래로 처져
+ * 보였다(요청으로 재확인, "버튼들이 또 어긋난다"). 그 stColumn만 0으로 되돌린다. */
+[data-testid="stColumn"]:has(.twiddler-toggle-marker) {
+    margin-top: 0 !important;
+}
+/* 마커(빈 markdown)와 트랙(horizontal block)이 같은 stVerticalBlock 안에서 형제로
+ * 놓이는데, Streamlit이 세로 블록에 flex gap(전역 0.85rem)을 쓰기 때문에 마커
+ * 자체 높이를 0으로 줄여도 트랙이 그 gap만큼 아래로 밀려 옆 새로고침 버튼과 다시
+ * 어긋났다(요청으로 재확인) — 이 칸의 gap만 0으로 좁힌다. */
+[data-testid="stColumn"]:has(.twiddler-toggle-marker) > [data-testid="stVerticalBlock"] {
+    gap: 0 !important;
+}
+[data-testid="stElementContainer"]:has(.twiddler-toggle-marker)
+    + [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] {
+    background: #f1f5f9;
+    border-radius: 999px;
+    padding: 3px;
+    gap: 2px !important;
+}
+/* button 자체에 %는 부모 체인(stColumn > stVerticalBlock > stElementContainer > stButton)이
+ * 전부 height:100%가 아니면 안 먹는다(요청으로 재확인, 트랙만 커지고 버튼은 안 커졌던
+ * 원인) — 퍼센트 대신 고정 rem으로 버튼 자체 높이를 주고 트랙은 padding만큼만 더 크게. */
+[data-testid="stElementContainer"]:has(.twiddler-toggle-marker)
+    + [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] [data-testid="stButton"] {
+    height: auto !important;
+    display: flex !important;
+    align-items: center !important;
+}
+[data-testid="stElementContainer"]:has(.twiddler-toggle-marker)
+    + [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] button {
+    border-radius: 999px !important;
+    border: none !important;
+    box-shadow: none !important;
+    font-size: 0.78rem !important;
+    font-weight: 800 !important;
+    height: 2.125rem !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+[data-testid="stElementContainer"]:has(.twiddler-toggle-marker)
+    + [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] [kind="secondary"] {
+    background: transparent !important;
+    color: #94a3b8 !important;
+}
+[data-testid="stElementContainer"]:has(.twiddler-toggle-marker)
+    + [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] [kind="primary"] {
+    background: #6366f1 !important;
+    color: #ffffff !important;
+}
+[data-testid="stElementContainer"]:has(.twiddler-toggle-marker)
+    + [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] button:disabled {
+    opacity: 0.55 !important;
+}
+
 /* ===== 배지 ===== */
 .badge {
     display: inline-block;
@@ -524,6 +588,44 @@
 }
 [class*="st-key-project_page_"] button[kind="primary"],
 [class*="st-key-project_page_"] button[kind="primary"] p {
+    color: #0f172a !important;
+    font-weight: 700 !important;
+}
+
+/* ===== 사이드바 "모델 선택" (ALS/LightGCN bipartite) — "프로젝트 안내"와 같은 톤 =====
+ * 본문에서 자리를 차지하던 좌우 버튼 2개를 사이드바로 옮기면서(요청 반영), 같은
+ * container(key=)+버튼 키 접두사 패턴을 재사용해 좁은 세로 gap과 좌측 강조선 스타일을
+ * 그대로 물려받는다. */
+[class*="st-key-model_select_menu"] [data-testid="stVerticalBlock"] {
+    gap: 0.1rem !important;
+}
+[class*="st-key-rerank_model_"] button {
+    background: transparent !important;
+    border: none !important;
+    border-left: 2px solid transparent !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    justify-content: flex-start !important;
+    padding: 0.3rem 0 0.3rem 0.6rem !important;
+    min-height: 1.75rem !important;
+    height: auto !important;
+    color: #64748b !important;
+    font-size: 0.9rem !important;
+    font-weight: 500 !important;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+[class*="st-key-rerank_model_"] button:hover {
+    color: #0f172a !important;
+}
+[class*="st-key-rerank_model_"] button p {
+    font-size: 0.9rem !important;
+    line-height: 1.35 !important;
+}
+[class*="st-key-rerank_model_"] button[kind="primary"] {
+    border-left-color: #6366f1 !important;
+}
+[class*="st-key-rerank_model_"] button[kind="primary"],
+[class*="st-key-rerank_model_"] button[kind="primary"] p {
     color: #0f172a !important;
     font-weight: 700 !important;
 }
@@ -965,10 +1067,9 @@
     margin: 0;
 }
 .intro-flow-strip {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr) 18px minmax(0, 1fr) 18px minmax(0, 1fr);
+    display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 14px;
     background: #f8fafc;
     border-radius: 8px;
     padding: 10px 12px;
@@ -976,6 +1077,7 @@
 }
 .intro-flow-strip div {
     min-width: 0;
+    flex: 0 0 auto;
 }
 .intro-flow-strip span,
 .intro-final-note span {
@@ -993,18 +1095,25 @@
     line-height: 1.35;
 }
 .intro-flow-strip i {
-    height: 1px;
-    background: #cbd5e1;
+    display: block;
+    align-self: center;
+    justify-self: center;
+    flex: 1 1 36px;
+    min-width: 32px;
+    height: 10px;
+    background: transparent;
     position: relative;
 }
 .intro-flow-strip i::after {
     content: "";
     position: absolute;
-    right: -1px;
-    top: -4px;
-    border-left: 7px solid #cbd5e1;
-    border-top: 4px solid transparent;
-    border-bottom: 4px solid transparent;
+    left: 50%;
+    top: 50%;
+    width: 10px;
+    height: 10px;
+    border-top: 1px solid #cbd5e1;
+    border-right: 1px solid #cbd5e1;
+    transform: translate(-50%, -50%) rotate(45deg);
 }
 .intro-watch-row {
     display: grid;
@@ -1034,6 +1143,7 @@
         min-height: auto;
     }
     .intro-flow-strip {
+        display: grid;
         grid-template-columns: 1fr;
     }
     .intro-flow-strip i {

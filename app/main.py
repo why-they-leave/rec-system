@@ -209,6 +209,13 @@ def _setup_sidebar() -> tuple[list[str], set[str] | None, pd.DataFrame | None]:
                 ):
                     st.session_state["project_page"] = page_key
                     st.rerun()
+    if current_tab == "rerank" and st.session_state.get("view", "main") != "detail":
+        # ALS/LightGCN bipartite 선택 버튼을 본문 상단(개별 유저 카드 아래)에서 사이드바
+        # "카테고리 필터" 위로 옮겼다(요청 반영: "카테고리 필터 위에 모델 선택으로
+        # 만들어줘") — "프로젝트 안내"와 같은 plain 세로 리스트 톤으로 통일한다.
+        st.sidebar.markdown("**모델 선택**")
+        with st.sidebar.container(key="model_select_menu"):
+            _render_rerank_model_toggle()
     if current_tab in ("rerank", "persona") and st.session_state.get("view", "main") != "detail":
         # 카테고리 필터 전체를 하나의 바깥 아코디언으로 감싸 접을 수 있게 한다(요청 반영).
         # 개별 카테고리 아이콘/이모지는 그대로 두고, 바깥 아코디언 제목 앞의 "☰"만 뺀다
@@ -403,16 +410,37 @@ def _render_recommend_grid(
 
 
 def _render_twiddler_toggle(key: str, effective_phase: str, *, disabled: bool = False) -> None:
-    """Twiddler 적용 전/후 토글 버튼. 라디오 대신 클릭 한 번으로 상태를 전환한다.
+    """Twiddler 적용 전/후를 고르는 압축형 Before/After 세그먼트 토글.
 
-    effective_phase: 현재 유효한 phase("Before"/"After") — Cold 유저 게이팅 등으로 인해
-    session_state 저장값과 다를 수 있어 호출부가 계산한 값을 그대로 받는다.
+    기존에는 상태에 따라 라벨이 바뀌는 넓은 버튼 1개("🔄 Twiddler 적용 중.. (적용 후)")
+    였는데, 프로젝트 소개 페이지 미리보기 목업의 필(pill) 토글이 더 직관적이라는 피드백으로
+    실제 페이지에도 반영한다(요청 반영) — Before/After 버튼 2개를 나란히 두고 현재 phase만
+    채워진 필로 강조한다. effective_phase: 현재 유효한 phase("Before"/"After") — Cold 유저
+    게이팅 등으로 인해 session_state 저장값과 다를 수 있어 호출부가 계산한 값을 그대로 받는다.
     """
     is_after = effective_phase == "After"
-    label = "🔄 Twiddler 적용 중.. (적용 후)" if is_after else "⏸️ Twiddler 미적용 (적용 전)"
-    if st.button(label, key=f"{key}_toggle_btn", width="stretch", disabled=disabled):
-        st.session_state[key] = "Before" if is_after else "After"
-        st.rerun()
+    st.markdown('<div class="twiddler-toggle-marker"></div>', unsafe_allow_html=True)
+    col_before, col_after = st.columns(2, gap="small")
+    with col_before:
+        if st.button(
+            "Before",
+            key=f"twidtoggle_{key}_before",
+            width="stretch",
+            type="secondary" if is_after else "primary",
+            disabled=disabled,
+        ):
+            st.session_state[key] = "Before"
+            st.rerun()
+    with col_after:
+        if st.button(
+            "After",
+            key=f"twidtoggle_{key}_after",
+            width="stretch",
+            type="primary" if is_after else "secondary",
+            disabled=disabled,
+        ):
+            st.session_state[key] = "After"
+            st.rerun()
 
 
 def _render_refresh_simulation_button(
@@ -470,31 +498,22 @@ def _render_refresh_simulation_button(
 
 
 def _render_rerank_model_toggle() -> str:
-    """Twiddler 재랭킹 탭 상단의 모델 좌우 토글 — ALS ↔ LightGCN bipartite.
+    """Twiddler 재랭킹 탭의 모델 선택 — ALS ↔ LightGCN bipartite.
 
-    사이드바 검증 화면 탭(_setup_sidebar, type="primary"/"secondary" 버튼 페어)과 동일한
-    스타일이되, st.columns(2)로 좌우 배치한다(요청 반영: "사이드바와 같은 탭을 좌우 버튼으로").
+    본문 상단에서 자리를 차지하던 좌우 버튼 2개를 사이드바 "카테고리 필터" 위
+    "모델 선택" 섹션으로 옮겼다(요청 반영: "카테고리 필터 위에 모델 선택으로 만들어줘").
+    사이드바의 다른 섹션(프로젝트 안내 등)과 같은 세로 리스트 버튼으로 통일한다.
     반환: 현재 선택된 모델("ALS" 또는 "LightGCN-bipartite").
     """
     current = st.session_state.get("rerank_model_type", "ALS")
-    col_als, col_lgcn = st.columns(2)
-    with col_als:
+    for label, value in (("ALS", "ALS"), ("LightGCN bipartite", "LightGCN-bipartite")):
         if st.button(
-            "ALS",
-            key="rerank_model_als_btn",
+            label,
+            key=f"rerank_model_{value}_btn",
             width="stretch",
-            type="primary" if current == "ALS" else "secondary",
+            type="primary" if current == value else "secondary",
         ):
-            st.session_state["rerank_model_type"] = "ALS"
-            st.rerun()
-    with col_lgcn:
-        if st.button(
-            "LightGCN bipartite",
-            key="rerank_model_lgcn_btn",
-            width="stretch",
-            type="primary" if current == "LightGCN-bipartite" else "secondary",
-        ):
-            st.session_state["rerank_model_type"] = "LightGCN-bipartite"
+            st.session_state["rerank_model_type"] = value
             st.rerun()
     return st.session_state.get("rerank_model_type", "ALS")
 
@@ -573,11 +592,10 @@ def _render_model_twiddler_block(
     # 개별 유저 카드는 _render_rerank_main 상단(페르소나 특성 카드 위)으로 옮겨서
     # 여기서는 중복 렌더링하지 않는다(요청 반영).
 
-    # 모델 좌우 토글 — 개별 유저 카드 바로 아래(요청 반영). 버튼 클릭은 session_state를
-    # 바꾸고 즉시 st.rerun()하므로, 이 함수가 지금 어떤 model_type로 호출됐는지와 무관하게
-    # 다음 rerun에서 _render_rerank_main이 새로 선택된 모델의 블록을 그린다.
-    _render_rerank_model_toggle()
-    st.divider()
+    # 모델 선택 버튼은 사이드바 "모델 선택" 섹션으로 옮겼다(요청 반영: "카테고리 필터
+    # 위에 모델 선택으로 만들어줘") — 버튼 클릭은 session_state를 바꾸고 즉시
+    # st.rerun()하므로, 이 함수가 지금 어떤 model_type로 호출됐는지와 무관하게 다음
+    # rerun에서 _render_rerank_main이 새로 선택된 모델의 블록을 그린다.
 
     try:
         after_df, after_status, after_message = get_main_recommendations(
@@ -605,7 +623,8 @@ def _render_model_twiddler_block(
         _apply_filters, selected_categories, selected_types
     )
 
-    st.markdown(f"### {section_title}")
+    # 사이드바 "모델 선택" 버튼이 이미 선택된 모델명을 보여주므로 여기서 같은 이름을
+    # 헤딩으로 또 띄우면 "ALS"가 중복으로 보인다(요청 반영: 중복 제거).
     if is_cold:
         st.caption("🧊 Cold 유저: Twiddler 미적용, 인기도 기반 추천")
     elif gate_cold_users:
@@ -713,7 +732,6 @@ def _render_rerank_main(
 
     # Twiddler 재랭킹 근거(alpha/decay/선호 카테고리)는 페르소나 기반이라 모델과 무관 —
     # 아래 모델별 블록보다 위에서 한 번만 보여준다.
-    st.divider()
     render_user_twiddler_case(user_id)
     st.divider()
 
