@@ -1,4 +1,4 @@
-"""카테고리/상품 → 이모지 매핑 (app/main.py 카테고리 필터, app/components/user_graph.py 노드 아이콘 공용)."""
+"""카테고리/상품 → 이모지·아이콘 매핑 (app/main.py 카테고리 필터, app/components/user_graph.py 노드 아이콘 공용)."""
 
 import re
 
@@ -11,6 +11,26 @@ CATEGORY_EMOJI: dict[str, str] = {
     "Books":          "📚",
     "Toys":           "🎮",
 }
+
+# app/static/images/categories/의 카테고리 아이콘 PNG(7종) — 파일명은 카테고리명을
+# lower_snake_case로 정규화한 slug(예: "Home & Kitchen" → "home_kitchen")와 동일하다.
+CATEGORY_ICONS_URL_DIR = "app/static/images/categories"  # enableStaticServing 기준 상대 URL
+
+_CATEGORY_ICON_SLUG: dict[str, str] = {
+    "Electronics":    "electronics",
+    "Home & Kitchen": "home_kitchen",
+    "Beauty":         "beauty",
+    "Sports":         "sports",
+    "Fashion":        "fashion",
+    "Books":          "books",
+    "Toys":           "toys",
+}
+
+
+def category_icon_url(category: str) -> str | None:
+    """카테고리명을 아이콘 정적 URL로 변환. 매핑에 없으면 None(호출부에서 CATEGORY_EMOJI 폴백)."""
+    slug = _CATEGORY_ICON_SLUG.get(category)
+    return f"{CATEGORY_ICONS_URL_DIR}/{slug}.png" if slug else None
 
 # data/raw/products.csv의 상품명은 "{타입} {색상} {번호}"(예: "Headphones Snow 402") 형식으로
 # 고정돼 있어, 타입 토큰(43종)을 전수 조사해 이모지를 정확히 매핑할 수 있다(카테고리보다
