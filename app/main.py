@@ -208,13 +208,20 @@ def _setup_sidebar() -> tuple[list[str], set[str] | None, pd.DataFrame | None]:
                     st.session_state["project_page"] = page_key
                     st.rerun()
     if current_tab == "rerank" and st.session_state.get("view", "main") != "detail":
+        # 순서상 유저를 먼저 골라야 나머지(비교/지표)가 의미가 있어서 "페르소나 및 유저
+        # 선택"을 맨 위로 올렸다(요청 반영). "데모 안내"와 같은 plain 리스트 톤으로
+        # 맞추고(요청 반영: "디자인 통일") 라벨 앞 문자 ">"는 빼고 활성 항목 표시는
+        # style.css의 [class*="st-key-rerank_page_"][kind="primary"] 왼쪽 인디고
+        # 보더로만 준다. 섹션 제목도 하위 항목(옛 "추천 결과 비교")과 겹치지 않게 상단
+        # nav 탭 이름과 맞춘다.
         rerank_pages = [
-            ("> 추천 결과 비교", "compare"),
-            ("> 페르소나 및 유저 선택", "user"),
-            ("> 오프라인 성능 지표", "metrics"),
+            ("페르소나 및 유저 선택", "user"),
+            ("추천 결과 비교", "compare"),
+            ("오프라인 성능 지표", "metrics"),
         ]
-        current_rerank_page = st.session_state.get("rerank_page", "compare")
-        with st.sidebar.expander("추천 결과 비교", expanded=True):
+        current_rerank_page = st.session_state.get("rerank_page", "user")
+        st.sidebar.markdown("**Twiddler 재랭킹**")
+        with st.sidebar.container(key="rerank_menu"):
             for label, page_key in rerank_pages:
                 if st.button(
                     label,
@@ -225,29 +232,29 @@ def _setup_sidebar() -> tuple[list[str], set[str] | None, pd.DataFrame | None]:
                     st.session_state["rerank_page"] = page_key
                     st.rerun()
 
-            if st.session_state.get("rerank_page", "compare") == "compare":
-                st.markdown("**카테고리 필터**")
-                for category in ALL_CATEGORIES:
-                    icon_url = category_icon_url(category)
-                    header = (
-                        f"![]({icon_url}) {category}"
-                        if icon_url
-                        else f"{CATEGORY_EMOJI[category]} {category}"
-                    )
-                    with st.expander(header):
-                        subtypes = CATEGORY_SUBTYPES.get(category, [])
-                        all_key = f"subcat_all_{category}"
+        if current_rerank_page == "compare":
+            st.sidebar.markdown("**카테고리 필터**")
+            for category in ALL_CATEGORIES:
+                icon_url = category_icon_url(category)
+                header = (
+                    f"![]({icon_url}) {category}"
+                    if icon_url
+                    else f"{CATEGORY_EMOJI[category]} {category}"
+                )
+                with st.sidebar.expander(header):
+                    subtypes = CATEGORY_SUBTYPES.get(category, [])
+                    all_key = f"subcat_all_{category}"
 
-                        def _toggle_all(category=category, subtypes=subtypes, all_key=all_key):
-                            checked = st.session_state[all_key]
-                            for subtype in subtypes:
-                                st.session_state[f"subcat_{category}_{subtype}"] = checked
-
-                        st.checkbox("전체", key=all_key, on_change=_toggle_all)
-                        st.markdown("<hr style='margin:0.1rem 0 0.4rem;'>", unsafe_allow_html=True)
+                    def _toggle_all(category=category, subtypes=subtypes, all_key=all_key):
+                        checked = st.session_state[all_key]
                         for subtype in subtypes:
-                            if st.checkbox(subtype, key=f"subcat_{category}_{subtype}"):
-                                selected_types.add(subtype)
+                            st.session_state[f"subcat_{category}_{subtype}"] = checked
+
+                    st.checkbox("전체", key=all_key, on_change=_toggle_all)
+                    st.markdown("<hr style='margin:0.1rem 0 0.4rem;'>", unsafe_allow_html=True)
+                    for subtype in subtypes:
+                        if st.checkbox(subtype, key=f"subcat_{category}_{subtype}"):
+                            selected_types.add(subtype)
         if selected_types:
             selected_categories = [
                 c
@@ -718,7 +725,7 @@ def _render_rerank_main(
     이관돼 있다. 이 화면에는 LightGCN bipartite(페르소나 미결합)만 ALS와 나란히 비교
     노출한다(reports/LIGHTGCN_BIPARTITE_TWIDDLER_PLAN.md).
     """
-    rerank_page = st.session_state.get("rerank_page", "compare")
+    rerank_page = st.session_state.get("rerank_page", "user")
     user_id, user_info = get_current_user_selection(demo_users_df)
 
     if rerank_page == "user":
@@ -726,6 +733,33 @@ def _render_rerank_main(
         st.caption("추천 비교에 사용할 페르소나와 데모 유저를 선택합니다.")
         user_id, user_info = render_persona_and_user_selector(demo_users_df)
         render_user_summary_card(user_id, user_info)
+
+        # 선택 화면이 텍스트만 있어 밋밋하다는 피드백으로, 이 유저에게 Twiddler 적용
+        # 전(before) 원래 보여지는 추천 상품을 미리보기로 깔아준다(요청 반영: "무작위로
+        # 원래 보여지는 상품들"). 클릭 상호작용은 "추천 비교" 화면 몫이라 상세보기
+        # 버튼 없이 카드만 조용히 보여준다(show_detail_button=False).
+        st.divider()
+        # 이 미리보기는 항상 ALS 기준으로 고정돼 있다(사이드바 모델 선택과 무관) —
+        # 오해 없도록 라벨에 명시한다(요청 반영: "ALS 모델이라고 쓰라").
+        st.markdown("**ALS 모델 기본 추천 미리보기 (Twiddler 적용 전)**")
+        try:
+            products_df = load_products()
+            preview_df, _, _ = get_main_recommendations(
+                user_id, "ALS", "before", top_n=4, graph_type="tripartite"
+            )
+            preview_items = preview_df.sample(frac=1, random_state=None).merge(
+                products_df, on="item_id", how="left"
+            )
+            _render_recommend_grid(
+                preview_items,
+                user_id=user_id,
+                plain_rank_mode=True,
+                ncols=4,
+                show_detail_button=False,
+                products_df=products_df,
+            )
+        except FileNotFoundError as e:
+            st.error(f"데이터를 불러올 수 없습니다: `{e}`")
         return
 
     if rerank_page == "metrics":
@@ -897,12 +931,12 @@ def _render_persona_tab(
     selected_types: set[str] | None,
     demo_users_df: pd.DataFrame,
 ) -> None:
-    """Tab 2(페르소나 기여도) — LightGCN bi-graph vs tri-graph.
+    """Tab 2(효과 해석) — LightGCN bi-graph vs tri-graph 페르소나 기여도.
 
-    reports/UI_TAB_RESTRUCTURE_PLAN.md 기준: 상단 정량비교(bi vs tri HR@K/NDCG@K)와
-    페르소나 유무 영향 케이스는 LightGCN 모델이 아직 스텁이라 이번 범위에서 제외했다
-    (모델 학습 완료 후 별도 계획). 카드 그리드는 기존 _render_main_recommend에서
-    로직 변경 없이 그대로 이관. 하단 서브그래프는 reports/USER_GRAPH_VIZ_PLAN.md 참고.
+    추천 결과 카드 자체는 "추천 비교" 탭에서 이미 보여주므로 여기서 중복으로 그리지
+    않는다(요청 반영: 팀원 피드백 — "추천 결과는 트위들러탭에서 보여주니까 효과해석은
+    지금 비워진 두 부분만 들어가도 될 것 같다"). LightGCN 모델 학습이 끝나면 두 정량
+    비교(bi vs tri HR@K/NDCG@K, 페르소나 유무 순위·카테고리 분포)를 이 자리에 채운다.
     """
     st.title("효과 해석")
     st.caption(
@@ -914,62 +948,13 @@ def _render_persona_tab(
     user_id, user_info = render_persona_and_user_selector(demo_users_df)
     render_user_summary_card(user_id, user_info)
 
-    # Twiddler 재랭킹 탭의 "Twiddler 재랭킹 근거"와 같은 위치(유저 카드 바로 아래) —
-    # 이 탭에서는 아직 근거 대신 준비 중 안내를 보여준다(요청 반영: 위치 통일).
-    st.info(
-        "🚧 LightGCN 모델 학습 완료 후 bi-graph vs tri-graph 정량 비교(HR@K/NDCG@K)와 "
-        "페르소나 유무에 따른 순위·카테고리 분포 비교 케이스가 추가될 예정입니다."
-    )
+    st.divider()
+    st.markdown("### bi-graph vs tri-graph 정량 비교 (HR@K / NDCG@K)")
+    st.info("🚧 LightGCN 모델 학습 완료 후 추가될 예정입니다.")
 
-    try:
-        products_df = load_products()
-        gcn_tri_recs, gcn_tri_status, gcn_tri_message = get_main_recommendations(
-            user_id, "LightGCN", graph_type="tripartite"
-        )
-        gcn_bi_recs, gcn_bi_status, gcn_bi_message = get_main_recommendations(
-            user_id, "LightGCN", graph_type="bipartite"
-        )
-    except FileNotFoundError as e:
-        st.error(f"데이터를 불러올 수 없습니다: `{e}`")
-        return
-
-    gcn_tri_items = gcn_tri_recs.merge(products_df, on="item_id", how="left").pipe(
-        _apply_filters, selected_categories, selected_types
-    )
-    gcn_bi_items = gcn_bi_recs.merge(products_df, on="item_id", how="left").pipe(
-        _apply_filters, selected_categories, selected_types
-    )
-
-    st.markdown("### 🚀 LightGCN")
-    st.write("GNN 기반 협업 필터링 · Twiddler 미적용")
-
-    st.radio(
-        "그래프 종류",
-        ["tripartite", "bipartite"],
-        index=0,  # 기본값 "삼분그래프"
-        horizontal=True,
-        key="gcn_graph_type",
-        format_func=lambda x: (
-            "삼분그래프 (페르소나 포함)" if x == "tripartite" else "이분그래프 (페르소나 미포함)"
-        ),
-        label_visibility="collapsed",
-    )
-    graph_phase = st.session_state.get("gcn_graph_type", "tripartite")
-
-    if graph_phase == "tripartite":
-        gcn_status, gcn_message, gcn_items = gcn_tri_status, gcn_tri_message, gcn_tri_items
-    else:
-        gcn_status, gcn_message, gcn_items = gcn_bi_status, gcn_bi_message, gcn_bi_items
-
-    _render_model_status_or_grid(
-        gcn_status,
-        gcn_message,
-        gcn_items,
-        id_key="item_id",
-        user_id=user_id,
-        model_key=f"gcn_{graph_phase}",
-        products_df=products_df,
-    )
+    st.divider()
+    st.markdown("### 페르소나 유무에 따른 순위 · 카테고리 분포 비교")
+    st.info("🚧 LightGCN 모델 학습 완료 후 추가될 예정입니다.")
 
     st.divider()
     render_user_graph(user_id)

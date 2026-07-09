@@ -6,29 +6,58 @@ import streamlit as st
 # 원문을 그대로 쓰고, 설명만 한국어로 옮겼다. pct는 페르소나 카드의 "세그먼트 N%"
 # 배지로 별도 표시하므로 desc 본문에서는 뺐다(요청 반영 — 배지+텍스트 중복 제거).
 PERSONA_META: dict[str, dict] = {
+    # desc는 segment_personas_train_only.json의 evidence 배열에 있는 실측 평균값을
+    # 그대로 인용한다(요청 반영: "설명 좀 더 보완해줄 수 있어? 주관성은 빼고?" — 해석성
+    # 표현 대신 숫자 근거를 추가). 원본 JSON도 "KMeans 클러스터링 결과라 경계가 뚜렷하지
+    # 않은 근사치"라고 명시하므로, 여기서도 확정적 단정 대신 관찰된 수치로만 서술한다.
     "Frequent Viewers with Consistent Purchases": {
         "pct": 19.5,
-        "desc": "자주 조회·장바구니 담기를 하고 세션마다 꾸준히 구매하며, 조회 카테고리와 구매 카테고리가 거의 일치(매치율 100%)합니다.",
+        "desc": (
+            "평균 조회 26.6회·장바구니 담기 6.9회(담기율 25.8%)로 활동이 활발하고, "
+            "전원이 구매 이력이 있습니다(평균 주문 1.63건).<br><br>"
+            "조회-구매 카테고리 일치율이 100%로, 둘러본 카테고리 안에서 그대로 구매까지 "
+            "이어지는 경향이 관찰됩니다."
+        ),
     },
     "Non-Purchasing Browsers": {
         "pct": 14.9,
-        "desc": "조회·장바구니 활동은 활발하지만 구매로 이어진 적이 없는(구매율 0%) 유저군입니다.",
+        "desc": (
+            "평균 조회 20.5회·장바구니 담기 4.8회(담기율 23.6%)로 조회·담기 활동은 "
+            "있지만,<br><br>구매 이력은 없습니다(구매율 0%, 평균 주문 0건)."
+        ),
     },
     "Low-Engagement Non-Purchasers": {
         "pct": 5.3,
-        "desc": "조회량이 적고 구매 전환도 거의 없으며(0.2%), 비활성 기간이 가장 긴 유저군입니다.",
+        "desc": (
+            "평균 조회 9.2회·장바구니 담기 1.9회로 6개 세그먼트 중 활동량이 가장 적고, "
+            "구매 전환율도 0.2%에 그칩니다.<br><br>"
+            "마지막 접속 이후 평균 986일이 지나 비활성 기간도 가장 깁니다."
+        ),
     },
     "Frequent Browsers with Occasional Purchases": {
         "pct": 30.1,
-        "desc": "여러 카테고리를 폭넓게 조회하지만 구매는 특정 카테고리에 편중되고, 조회-구매 카테고리 일치율은 0%에 가깝습니다.",
+        "desc": (
+            "평균 조회 26.5회로 여러 카테고리를 폭넓게 조회하지만, 구매(평균 1.42건)는 "
+            "특정 카테고리에 집중됩니다(주력 구매 카테고리 비중 73.7%).<br><br>"
+            "조회-구매 카테고리 일치율은 0.0%로, 둘러본 카테고리와 실제 구매 카테고리가 "
+            "겹치지 않습니다."
+        ),
     },
     "High-Engagement Occasional Purchasers": {
         "pct": 9.9,
-        "desc": "조회·장바구니 참여도는 높지만 구매는 간헐적이며, 조회-구매 카테고리 일치율은 52.5%로 중간 수준입니다.",
+        "desc": (
+            "장바구니 담기율이 34.9%로 6개 세그먼트 중 가장 높아 관심 표현은 크지만, "
+            "세션당 구매 확률은 0.53건으로 간헐적입니다.<br><br>"
+            "조회-구매 카테고리 일치율은 52.5%로 중간 수준입니다."
+        ),
     },
     "High-Engagement Repeat Purchasers": {
         "pct": 20.4,
-        "desc": "조회량·주문 횟수·구매 카테고리 다양성이 모두 높은 반복구매 유저군이지만, 최근 활동은 뜸한 편입니다.",
+        "desc": (
+            "평균 조회 37.6회·평균 주문 3.42건으로 조회량과 구매 빈도가 모두 가장 "
+            "높고, 구매 카테고리 다양성도 평균 3.76개로 가장 넓습니다.<br><br>"
+            "다만 마지막 접속 이후 평균 211일이 지나 최근 활동은 뜸한 편입니다."
+        ),
     },
 }
 
@@ -157,21 +186,34 @@ def render_user_summary_card(
     persona_ko = PERSONA_KO.get(persona_label, "")
     persona_name = f"{persona_label} ({persona_ko})" if persona_ko else persona_label
     status_part = f" · Twiddler: {twiddler_status}" if twiddler_status else ""
+    # 페르소나 특성(왼쪽) / 개별 유저(오른쪽)를 세로로 쌓지 않고 한 줄에 2열로 배치
+    # (요청 반영: "이거 두개를 같은 줄에 놓고 싶어. 두 열로") — 가로 구분선 대신 세로
+    # 구분선(.user-summary-divider, border-left)으로 바꾼다.
     st.markdown(
         f'<div class="user-summary-card">'
+        f'<div class="user-summary-col">'
         f'<div class="persona-card-name">{persona_name}</div>'
         f'<div class="persona-card-desc">{user_info["persona_desc"]}</div>'
+        f"</div>"
         f'<div class="user-summary-divider"></div>'
+        f'<div class="user-summary-col">'
         f'<div class="user-summary-header">'
         f'<div class="user-summary-avatar">{user_id}</div>'
         f"<div>"
         f'<div class="user-summary-label">🧑 개별 유저</div>'
-        f'<div class="user-summary-name">User {user_id:03d} · {persona_label}</div>'
-        f'<div class="user-summary-meta">'
+        # 페르소나명은 바로 왼쪽 칸(persona-card-name)에 이미 나와 있어 여기 또 적으면
+        # 중복이다(요청 반영: "이미 페르소나 설명에서 말해주는데 중복으로 들어갈 필요
+        # 없는거같음") — 유저 번호만 남긴다.
+        f'<div class="user-summary-name">User {user_id:03d}</div>'
+        # HEAVY/COLD 뜻이 바로 안 보인다는 피드백(요청 반영) — 용어 해석 페이지에 정식
+        # 설명을 추가하고, 여기서는 hover 시 뜨는 title 툴팁으로 간단히 안내한다.
+        f'<div class="user-summary-meta" '
+        f'title="Heavy: 학습 기간 이벤트 10건 이상 / Cold: 10건 미만(인기도 기반 추천으로 대체)">'
         f'{user_info["user_type_label"].upper()} · 로그 {user_info["log_count"]:,}건{status_part}'
         f"</div></div>"
         f'<span class="badge badge-segment user-summary-segment">'
         f'세그먼트 {user_info["persona_pct"]:.1f}%</span>'
+        f"</div>"
         f"</div>"
         f"</div>",
         unsafe_allow_html=True,

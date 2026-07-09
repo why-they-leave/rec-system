@@ -340,7 +340,10 @@
     line-height: 1.5;
 }
 .persona-card-name {
-    font-size: 0.82rem;
+    /* 페르소나명(영문+한글 요약) 전체가 작아서 잘 안 읽힌다는 피드백으로(요청 반영)
+     * 0.82rem → 1rem으로 키움 — 처음엔 한글만 키웠으나 영문도 같이 키워달라는
+     * 후속 요청 반영. */
+    font-size: 1rem;
     color: #1d4ed8;
     font-weight: 600;
     margin-bottom: 4px;
@@ -351,25 +354,47 @@
  * subheader + markdown 3줄 + 별도 st.metric 2개로 흩어져 있었음).
  */
 .user-summary-card {
-    /* 개별 유저 + 페르소나 특성 통합 카드(요청 반영) — 위(아바타/이름/세그먼트)와
-     * 아래(페르소나 설명)를 한 박스 안에 구분선으로만 나눈다. */
+    /* 개별 유저 + 페르소나 특성 통합 카드(요청 반영) — 왼쪽(페르소나 설명)과
+     * 오른쪽(아바타/이름/세그먼트)을 세로로 쌓지 않고 한 줄 2열로 배치하고, 구분선도
+     * 가로 대신 세로로 바꾼다(요청 반영: "이거 두개를 같은 줄에 놓고 싶어. 두 열로").
+     * 배경색만으로는 경계가 흐릿해 박스로 안 보인다는 피드백으로(요청 반영: "박스 안에
+     * 넣어줘") 다른 카드(.product-card 등)와 같은 톤의 테두리를 추가한다. */
+    display: flex;
+    align-items: stretch;
     background: #f8fafc;
+    border: 1px solid var(--card-border);
     border-radius: var(--card-radius);
     padding: 12px 16px;
     margin-bottom: 10px;
+}
+.user-summary-col {
+    flex: 1 1 0;
+    min-width: 0;
+}
+/* 오른쪽(개별 유저) 칸은 페르소나명을 빼고 유저 번호/메타/뱃지만 남아 왼쪽(페르소나
+ * 설명)보다 내용이 짧다 — 똑같이 절반씩 나누면 오른쪽에 불필요한 빈 공간이 생긴다
+ * (요청 반영: "유저 설명이 저렇게 긴 가로폭을 차지할 필요 없는거 같아"). 왼쪽에 더
+ * 넓은 비중을 준다. */
+.user-summary-col:first-child {
+    flex: 1.6 1 0;
+}
+.user-summary-col:last-child {
+    flex: 1 1 0;
+    max-width: 320px;
 }
 .user-summary-header {
     display: flex;
     align-items: center;
     gap: 14px;
+    height: 100%;
 }
 .user-summary-segment {
     margin-left: auto;
     align-self: flex-start;
 }
 .user-summary-divider {
-    border-top: 1px solid #e2e8f0;
-    margin: 10px 0;
+    border-left: 1px solid #e2e8f0;
+    margin: 0 16px;
 }
 .user-summary-avatar {
     flex-shrink: 0;
@@ -766,7 +791,10 @@
     width: auto !important;
 }
 
-/* ===== 팀 소개 페이지 ===== */
+/* ===== 팀 소개 페이지 =====
+ * 참고 이미지 스타일로 재구성(요청 반영): Q&A 배너 + 원형 사진 그리드(이름만) +
+ * 팀원별 자기소개 문단. 기존 카드 그리드(.team-avatar-wrap 등)는 더는 쓰지 않지만,
+ * 다른 화면에서 재사용할 가능성을 남겨 CSS는 지우지 않고 아래에 새 블록만 추가한다. */
 .team-intro {
     margin: 0 0 20px 0;
 }
@@ -778,6 +806,85 @@
 .team-intro-desc {
     font-size: 0.85rem;
     color: var(--text-meta);
+}
+.team-banner {
+    background: #eef2ff;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 4px 0 20px 0;
+}
+.team-banner-title {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 8px;
+}
+.team-banner-body {
+    font-size: 0.9rem;
+    line-height: 1.65;
+    color: #334155;
+}
+.team-photo-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    /* 말풍선이 들어갈 자리를 위쪽에 미리 확보한다(요청 반영: 팀 소개 배너 박스와
+     * 겹쳐 보였던 문제) — 말풍선 없는 칸도 다같이 밀려야 사진 줄이 가로로 맞으므로
+     * 모든 칸에 동일하게 적용한다. */
+    margin-top: 38px;
+    margin-bottom: 8px;
+}
+.team-photo-circle-wrap {
+    position: relative;
+}
+.team-photo-circle {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #f1f5f9;
+}
+/* 캐릭터 사진 위에 얹는 말풍선(요청 반영: "정연이야_반가워" 이미지) — .team-photo-item의
+ * margin-top이 미리 확보해둔 자리 안에서만 위로 뜨도록 오프셋을 좁혀 배너 박스와
+ * 겹치지 않게 한다. */
+.team-photo-speech {
+    position: absolute;
+    left: 50%;
+    top: -34px;
+    transform: translateX(-50%);
+    max-width: 130px;
+    height: auto;
+    z-index: 1;
+}
+.team-photo-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+    text-align: center;
+}
+.team-divider {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 8px 0 18px 0;
+}
+.team-bio-name {
+    display: inline-block;
+    font-size: 1rem;
+    font-weight: 800;
+    color: #0f172a;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    margin-bottom: 6px;
+}
+.team-bio-text {
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: #334155;
+    margin: 0 0 8px 0;
+}
+.team-bio-spacer {
+    height: 20px;
 }
 
 /* 캐릭터 PNG마다 투명 여백 비율이 달라 <img>를 그냥 나열하면 실제 렌더 높이가
@@ -830,11 +937,11 @@
     padding-left: 1.2rem;
 }
 .team-github-link {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    width: 100%;
+    width: auto;
     padding: 0.4rem 0.75rem;
     border: 1px solid #d0d7de;
     border-radius: 6px;
