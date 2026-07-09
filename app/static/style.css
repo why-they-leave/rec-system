@@ -30,31 +30,6 @@
     margin: 0 auto;
 }
 
-/* ===== 사이드바 브랜드 헤더 (로고 아래, "추크크" 타이틀) =====
- * st.sidebar.title()+caption()은 렌더 크기가 본문 subheader보다도 작아 데모 페이지
- * 타이틀로는 존재감이 부족했다 — 중앙 정렬 + 큰 굵은 제목 + 트래킹 넓힌 영문 부제 조합으로
- * 브랜드 헤더답게 키웠다(요청 반영).
- */
-.sidebar-brand {
-    text-align: center;
-    margin: 6px 0 14px 0;
-}
-.sidebar-brand-title {
-    font-size: 1.7rem;
-    font-weight: 800;
-    letter-spacing: 0.02em;
-    color: #0f172a;
-    line-height: 1.2;
-    margin-bottom: 3px;
-}
-.sidebar-brand-subtitle {
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-meta);
-}
-
 /* ===== st.title(h1) 글씨 크기 축소 (📊 메인 추천 / 🛒 연관 상품 추천) =====
  * stHeading 래퍼로 h1(st.title)만 정확히 겨냥 — h2/h3(subheader 등)는 그대로 둔다.
  * stMain(본문 영역)으로 스코프를 좁혀 사이드바 타이틀(🛍️ 추천 시스템 데모, 이것도
@@ -358,6 +333,14 @@
     flex: 1 !important;
     display: flex !important;
     flex-direction: column !important;
+}
+
+/* ===== 상단 네비게이션 바 (요청 반영: 사이드바 탭 버튼 → 상단바로 이동) ===== */
+.topnav-brand {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 40px;
 }
 
 /* ===== 사이드바: 배경 흰색 ===== */

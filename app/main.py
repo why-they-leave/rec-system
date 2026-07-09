@@ -45,6 +45,7 @@ from components.eval_metrics_table import (  # noqa: E402
 from components.product_card import render_current_product_card, render_product_card  # noqa: E402
 from components.team_page import render_team_page  # noqa: E402
 from components.user_graph import render_user_graph  # noqa: E402
+from components.user_list import render_user_list  # noqa: E402
 from components.user_selector import (  # noqa: E402
     render_persona_and_user_selector,
     render_persona_card,
@@ -87,65 +88,72 @@ _DETAIL_TOP_N = 8
 _SIM_ROUNDS = 5
 
 
+# ── 상단 네비게이션 바 ─────────────────────────────────────────────────────────
+
+
+def _render_top_navbar() -> None:
+    """로고+브랜드 + 탭 버튼(Twiddler 재랭킹/페르소나 기여도/유저 목록/팀 소개)을 본문 최상단에
+    가로로 배치(요청 반영: 사이드바 버튼 → 상단바로 이동). 로직은 그대로 두고 위치만 옮긴
+    것이라 각 버튼은 기존과 동일하게 session_state["main_tab"]만 바꾸고 st.rerun()한다.
+    """
+    current_tab = st.session_state.get("main_tab", "rerank")
+    col_logo, col_brand, col_b1, col_b2, col_b3, col_b4 = st.columns(
+        [0.6, 1.6, 1.3, 1.3, 1, 1], vertical_alignment="center"
+    )
+    with col_logo:
+        st.image(str(_LOGO_PATH), width=96)
+    with col_brand:
+        st.markdown('<div class="topnav-brand">추크크</div>', unsafe_allow_html=True)
+    with col_b1:
+        if st.button(
+            "Twiddler 재랭킹",
+            width="stretch",
+            type="primary" if current_tab == "rerank" else "secondary",
+        ):
+            st.session_state["main_tab"] = "rerank"
+            st.rerun()
+    with col_b2:
+        if st.button(
+            "페르소나 기여도",
+            width="stretch",
+            type="primary" if current_tab == "persona" else "secondary",
+        ):
+            st.session_state["main_tab"] = "persona"
+            st.rerun()
+    with col_b3:
+        if st.button(
+            "유저 목록",
+            width="stretch",
+            type="primary" if current_tab == "userlist" else "secondary",
+        ):
+            st.session_state["main_tab"] = "userlist"
+            st.rerun()
+    with col_b4:
+        if st.button(
+            "팀 소개",
+            width="stretch",
+            type="primary" if current_tab == "team" else "secondary",
+        ):
+            st.session_state["main_tab"] = "team"
+            st.rerun()
+    st.divider()
+
+
 # ── 사이드바 ───────────────────────────────────────────────────────────────────
 
 
 def _setup_sidebar() -> tuple[list[str], set[str] | None, pd.DataFrame | None]:
     """사이드바 초기화. (선택된 카테고리 목록, demo_users_df) 반환.
 
-    페르소나/유저 선택은 각 화면 본문(render_persona_and_user_selector)에서 렌더링하고,
-    "메인으로 돌아가기" 버튼도 상세 화면 본문에 이미 있으므로(_render_rerank_detail),
-    사이드바는 검증 화면 탭(main_tab)과 카테고리 필터(연관상품 상세 화면 제외)만 담당한다.
-    상세 화면에서는 카테고리 필터를 보여줄 내용이 없으므로 탭 라디오 아래 구분선 하나만
-    남기고 아무것도 추가하지 않는다.
+    탭 네비게이션은 상단바(_render_top_navbar)로 이동했고(요청 반영), 사이드바는 이제
+    카테고리 필터(연관상품 상세 화면 제외)만 담당한다.
     """
     load_css(str(_STATIC_DIR / "style.css"))
 
-    # image에 투명 placeholder를 줘서 사이드바가 펼쳐진 동안은 이 상단 아이콘이 보이지
-    # 않게 하고, icon_image(실제 로고)는 사이드바가 접혔을 때만 본문 좌상단에 뜬다(요청 반영).
+    # 사이드바가 접혔을 때 본문 좌상단에 뜨는 작은 아이콘 — 로고/브랜드 본문은 상단바로
+    # 옮겼으므로 image에는 투명 placeholder만 남긴다.
     st.logo(str(_LOGO_BLANK_PATH), icon_image=str(_LOGO_PATH), size="large")
-    # 사이드바 폭을 채우는 큰 로고 — CSS에서 0.7배로 축소(요청 반영, style.css 참고).
-    st.sidebar.image(str(_LOGO_PATH), width="stretch")
-    # st.sidebar.title()+caption()은 본문 subheader보다도 작게 보여 "데모 타이틀"보다는
-    # 부가 텍스트처럼 읽혔다 — 로고 아래 중앙 정렬된 브랜드 헤더로 교체(요청 반영,
-    # style.css의 .sidebar-brand*).
-    st.sidebar.markdown(
-        '<div class="sidebar-brand">'
-        '<div class="sidebar-brand-title">추크크</div>'
-        '<div class="sidebar-brand-subtitle">Recommendation Creator Crew</div>'
-        "</div>",
-        unsafe_allow_html=True,
-    )
     current_tab = st.session_state.get("main_tab", "rerank")
-    # 팀 소개는 "검증 화면"(분석 결과 탭)이 아니라 브랜드 헤더에 딸린 메타 정보라
-    # 검증 탭 버튼 그룹과 분리해 로고/타이틀 바로 아래에 둔다(요청 반영).
-    if st.sidebar.button(
-        "🙋 팀 소개",
-        width="stretch",
-        type="primary" if current_tab == "team" else "secondary",
-    ):
-        st.session_state["main_tab"] = "team"
-        st.rerun()
-    st.sidebar.markdown("---")
-
-    # ── 검증 화면 탭 (좌측 사이드바 버튼 — st.tabs는 상단 가로형이라 대신 사용) ──
-    # 순서/기본 진입 탭 요청 반영: Twiddler 재랭킹을 위, 페르소나 기여도를 아래로.
-    st.sidebar.markdown("**검증 화면**")
-    if st.sidebar.button(
-        "Twiddler 재랭킹",
-        width="stretch",
-        type="primary" if current_tab == "rerank" else "secondary",
-    ):
-        st.session_state["main_tab"] = "rerank"
-        st.rerun()
-    if st.sidebar.button(
-        "페르소나 기여도",
-        width="stretch",
-        type="primary" if current_tab == "persona" else "secondary",
-    ):
-        st.session_state["main_tab"] = "persona"
-        st.rerun()
-    st.sidebar.markdown("---")
 
     try:
         demo_users = load_demo_users()
@@ -158,7 +166,7 @@ def _setup_sidebar() -> tuple[list[str], set[str] | None, pd.DataFrame | None]:
     # 아무것도 체크 안 하면 전체(카테고리 레벨 필터만 적용 안 함, selected_types=None).
     selected_categories = ALL_CATEGORIES[:]
     selected_types: set[str] = set()
-    if current_tab != "team" and st.session_state.get("view", "main") != "detail":
+    if current_tab not in ("team", "userlist") and st.session_state.get("view", "main") != "detail":
         st.sidebar.markdown("**🏷️ 카테고리 필터**")
         for category in ALL_CATEGORIES:
             icon_url = category_icon_url(category)
@@ -481,7 +489,7 @@ def _render_model_twiddler_block(
 
     st.markdown(f"### {section_title}")
     if is_cold:
-        st.caption("🧊 Cold 유저: Twiddler 미적용 — 인기도 기반 추천")
+        st.caption("🧊 Cold 유저: Twiddler 미적용, 인기도 기반 추천")
     elif gate_cold_users:
         st.caption("🔥 Heavy 유저: Twiddler 적용 효과 비교")
     else:
@@ -518,7 +526,7 @@ def _render_model_twiddler_block(
             prev_df = sim_history[sim_round - 2][0]
             sim_rank_before_map = dict(zip(prev_df["item_id"].astype(int), prev_df["rank"]))
         st.caption(
-            f"🔁 새로고침 시뮬레이션 — {sim_round}/{_SIM_ROUNDS}회차 (노출 이력이 실제로 누적됩니다)"
+            f"🔁 새로고침 시뮬레이션 {sim_round}/{_SIM_ROUNDS}회차 (노출 이력이 실제로 누적됩니다)"
         )
         _render_model_status_or_grid(
             sim_status,
@@ -532,7 +540,7 @@ def _render_model_twiddler_block(
     else:
         if sim_round > 0:
             st.caption(
-                "⏸️ Twiddler 미적용 — 새로고침 시뮬레이션은 Twiddler 적용(After) 상태에서만 순위가 변합니다."
+                "⏸️ Twiddler 미적용 상태입니다. 새로고침 시뮬레이션은 Twiddler 적용(After) 상태에서만 순위가 변합니다."
             )
         _render_model_status_or_grid(
             status,
@@ -563,7 +571,12 @@ def _render_rerank_main(
     이관돼 있다. 이 화면에는 LightGCN bipartite(페르소나 미결합)만 ALS와 나란히 비교
     노출한다(reports/LIGHTGCN_BIPARTITE_TWIDDLER_PLAN.md).
     """
-    st.title("🔁 Twiddler 재랭킹 — 탐색 다양성 확인")
+    st.title("재랭킹하면 추천이 어떻게 달라질까")
+    st.caption(
+        "Twiddler(페르소나 기반 재랭킹)는 같은 추천 후보 안에서 순서만 바꿉니다. "
+        "탐색 다양성은 대체로 개선되고, 정확도(HR@K)는 K값에 따라 오르내릴 수 있습니다. "
+        "아래에서 실제 수치로 확인하세요."
+    )
 
     # ── 유저 소개 (페르소나 선택 + 유저 선택) ──────────────────────────────
     st.markdown("---")
@@ -739,7 +752,7 @@ def _render_persona_tab(
     (모델 학습 완료 후 별도 계획). 카드 그리드는 기존 _render_main_recommend에서
     로직 변경 없이 그대로 이관. 하단 서브그래프는 reports/USER_GRAPH_VIZ_PLAN.md 참고.
     """
-    st.title("🕸️ 페르소나 기여도 — bi-graph vs tri-graph")
+    st.title("페르소나 기여도 (bi-graph vs tri-graph)")
 
     st.markdown("---")
     user_id, user_info = render_persona_and_user_selector(demo_users_df)
@@ -818,6 +831,7 @@ def main() -> None:
         # 접속 시 기본 진입 탭 — Twiddler 재랭킹(요청 반영).
         st.session_state["main_tab"] = "rerank"
 
+    _render_top_navbar()
     selected_categories, selected_types, demo_users_df = _setup_sidebar()
 
     if demo_users_df is None:
@@ -835,6 +849,8 @@ def main() -> None:
         _render_persona_tab(selected_categories, selected_types, demo_users_df)
     elif main_tab == "team":
         render_team_page()
+    elif main_tab == "userlist":
+        render_user_list(demo_users_df)
 
 
 main()

@@ -88,7 +88,7 @@ def _render_team_card(member: dict) -> None:
 
 
 def render_team_page() -> None:
-    st.title("👥 팀 소개")
+    st.title("팀 소개")
     st.markdown(
         '<div class="team-intro">'
         '<span class="team-intro-title">추크크✨ Recommendation Creator Crew</span><br>'

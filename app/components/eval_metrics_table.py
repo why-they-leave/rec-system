@@ -193,7 +193,7 @@ def render_eval_metrics(context: str, persona_label: str | None = None) -> None:
     acc_ctx = accuracy_df[accuracy_df["context"] == context]
     div_ctx = diversity_df[diversity_df["context"] == context]
 
-    st.markdown("**① 전체 정확도 — 단일 세션/조회 기준 (population 평균)**")
+    st.markdown("**① 전체 정확도 (단일 세션/조회 기준, population 평균)**")
     _render_metric_section(
         acc_ctx[acc_ctx["segment"] == _ALL_SEGMENTS_LABEL],
         context,
@@ -203,7 +203,7 @@ def render_eval_metrics(context: str, persona_label: str | None = None) -> None:
         headline=("HR", "HR@K", True),
     )
 
-    st.markdown("**② 전체 다양성 — 반복 새로고침/재방문 기준 (population 평균)**")
+    st.markdown("**② 전체 다양성 (반복 새로고침/재방문 기준, population 평균)**")
     _render_metric_section(
         div_ctx[div_ctx["segment"] == _ALL_SEGMENTS_LABEL],
         context,
@@ -218,7 +218,7 @@ def render_eval_metrics(context: str, persona_label: str | None = None) -> None:
 
     seg_acc = acc_ctx[acc_ctx["segment"] == persona_label]
     seg_div = div_ctx[div_ctx["segment"] == persona_label]
-    st.markdown(f"**③ 선택된 페르소나 breakdown — {persona_label}**")
+    st.markdown(f"**③ 선택된 페르소나 breakdown ({persona_label})**")
     if seg_acc.empty and seg_div.empty:
         st.caption("이 페르소나는 평가 데이터가 부족해 breakdown을 계산하지 못했습니다.")
         return

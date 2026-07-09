@@ -34,7 +34,7 @@ PERSONA_META: dict[str, dict] = {
 
 # 드롭다운에서 영문 세그먼트명 옆에 짧게 붙일 한글 한 줄 해석 — PERSONA_META의 desc(상세
 # 설명)와 별개로, 선택 전에 뜻을 훑어볼 수 있게 짧은 요약만 괄호로 덧붙인다(요청 반영).
-_PERSONA_KO: dict[str, str] = {
+PERSONA_KO: dict[str, str] = {
     "Frequent Viewers with Consistent Purchases": "꾸준한 구매형",
     "Non-Purchasing Browsers": "구경만 하는 유저",
     "Low-Engagement Non-Purchasers": "저활동 비구매",
@@ -51,22 +51,26 @@ def render_persona_and_user_selector(demo_users_df: pd.DataFrame) -> tuple[int, 
     """
     personas = sorted(demo_users_df["persona_label"].unique().tolist())
 
-    col_persona, col_user = st.columns(2)
+    # 페르소나명이 영문 전체 문구(최대 44자)라 균등 2열이면 잘린다 — 유저 선택 쪽은
+    # "User 00259 | HEAVY | 로그 43건"처럼 짧아서 폭이 덜 필요하다(요청 반영).
+    col_persona, col_user = st.columns([2, 1])
 
     with col_persona:
         selected_persona = st.selectbox(
             "페르소나 선택",
             options=personas,
-            format_func=lambda p: f"{p} ({_PERSONA_KO.get(p, '')})" if _PERSONA_KO.get(p) else p,
+            format_func=lambda p: f"{p} ({PERSONA_KO.get(p, '')})" if PERSONA_KO.get(p) else p,
             key="selected_persona",
         )
 
     persona_users = demo_users_df[demo_users_df["persona_label"] == selected_persona]
     options = persona_users["user_id"].tolist()
+    # "User "/"로그"/"건" 같은 수식어를 빼고 값만 나열 — 페르소나 쪽에 폭을 더 줘야 해서
+    # 유저 선택 라벨은 짧을수록 좋다(요청 반영: 둘 다 안 잘리게).
     label_map = {
         int(
             row["user_id"]
-        ): f"User {int(row['user_id']):05d} | {row['user_type'].upper()} | 로그 {int(row['log_count']):,}건"
+        ): f"{int(row['user_id']):05d} · {row['user_type'].upper()} · {int(row['log_count']):,}건"
         for _, row in persona_users.iterrows()
     }
 
@@ -105,7 +109,7 @@ def render_persona_card(user_info: dict) -> None:
     박스로 바꿔 배지를 헤더 우측에 나란히 배치할 수 있게 함, style.css의 .persona-card*).
     """
     persona_label = user_info["persona_label"]
-    persona_ko = _PERSONA_KO.get(persona_label, "")
+    persona_ko = PERSONA_KO.get(persona_label, "")
     persona_name = f"{persona_label} ({persona_ko})" if persona_ko else persona_label
     st.markdown(
         f'<div class="persona-card">'
