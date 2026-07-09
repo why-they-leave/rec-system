@@ -329,3 +329,51 @@
     max-height: calc(1em + 2px) !important;
     width: auto !important;
 }
+
+/* ===== 팀 소개 페이지 ===== */
+.team-intro {
+    margin: 0 0 20px 0;
+}
+.team-intro-title {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #0f172a;
+}
+.team-intro-desc {
+    font-size: 0.85rem;
+    color: var(--text-meta);
+}
+
+.team-avatar {
+    display: block;
+    width: 96px;
+    height: 96px;
+    object-fit: cover;
+    border-radius: 50%;
+    margin: 0 auto 10px auto;
+    border: 2px solid var(--card-border);
+}
+.team-name {
+    text-align: center;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 2px;
+}
+.team-goal {
+    font-size: 0.85rem;
+    color: #334155;
+    text-align: center;
+    line-height: 1.5;
+    margin: 8px 0 6px 0;
+}
+.team-goal-note {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+.team-role-list {
+    font-size: 0.78rem;
+    color: var(--text-meta);
+    margin: 0 0 12px 0;
+    padding-left: 1.2rem;
+}
