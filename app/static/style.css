@@ -80,6 +80,14 @@
     font-size: 1rem !important;
     font-weight: 700 !important;
     color: #334155 !important;
+    /* .section-caption과 여백까지 완전히 맞춘다(요청 반영: "간격 및 글씨체 볼드 이런거
+     * 통일시켜"). */
+    margin-bottom: 8px;
+    /* st.caption()은 래퍼(stCaptionContainer)에 opacity:0.6을 강제로 씌우는데, 이
+     * 클래스는 st.markdown으로도 쓰이는 경우가 있어(요청으로 확인: "이거랑 글씨체 색
+     * 같게 하라고" — 기준은 h1 바로 아래 캡션의 실제 렌더링, 즉 opacity 0.6 적용된
+     * 흐린 톤) 같은 값을 직접 명시해 어느 쪽으로 렌더링해도 동일하게 보이게 한다. */
+    opacity: 0.6;
 }
 /* 이 캡션과 바로 아래 위젯("페르소나 선택" 등) 사이 간격이 좁아 붙어 보인다는
  * 피드백(요청 반영: "bigraph는~ 문장이랑 페르소나 선택 사이에 간격 늘려줘. 다른
@@ -591,6 +599,9 @@
     font-weight: 700;
     color: #334155;
     margin-bottom: 8px;
+    /* .caption-emphasis와 동일한 이유로 opacity 0.6 명시(요청 반영: "이거랑 글씨체
+     * 색 같게 하라고" — h1 바로 아래 캡션의 실제 렌더링 톤에 맞춤). */
+    opacity: 0.6;
 }
 
 /* ===== Twiddler 재랭킹 근거 카드 (alpha/decay/선호 카테고리) =====
