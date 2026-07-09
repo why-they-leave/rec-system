@@ -25,12 +25,14 @@ GDrive에 업로드된 데이터 번들을 내려받아 리포 루트에 압축 
     data/outputs/eval/twiddler_diversity.csv                      (load_twiddler_eval — 오프라인 성능 지표)
     data/outputs/LightGCN/PRED_MAIN_RECOMMEND.csv                 (lightgcn_service — bipartite 추천, 유저별 top-100)
     data/outputs/LightGCN/lightgcn_test.csv                       (evaluate_twiddler — bipartite 정답셋)
+    data/processed/segment_personas_train_only.json               (graph_service — 추천 근거 그래프 세그먼트 노드 이름)
 
 data/processed/df_integrated_logs.csv(39MB)는 원본 로그 파생 파일치고 크지만, 다른 재학습
 파이프라인에서도 재사용되는 원본 그대로를 유지하기 위해 컬럼을 축소하지 않고 그대로 포함한다.
 
-data/processed/segment_personas_train_only.json은 graph_service.py가 있으면만 읽어 세그먼트
-노드 라벨을 채우는 선택적 파일이라(없어도 그래프 자체는 동작) 이 필수 목록에는 넣지 않는다.
+data/processed/segment_personas_train_only.json은 graph_service.py가 없어도(즉 세그먼트
+이름 없이 "세그먼트 N"으로만) 그래프 자체는 동작하도록 선택적으로 읽는 파일이지만, 이름이
+안 채워지는 문제(요청으로 발견)를 겪은 뒤로는 정상 배포 시 항상 채워지도록 필수 목록에 넣었다.
 
 재학습/재현(원본 로그 → 파이프라인 재실행)까지 필요하면 data/raw/, data/interim/als_events.csv도
 별도로 받아야 한다 — 이 모듈의 범위 밖이다(reports/BACKEND_INTEGRATION_PLAN.md 참고).
@@ -65,6 +67,7 @@ REQUIRED_FILES = [
     "data/outputs/eval/twiddler_diversity.csv",
     "data/outputs/LightGCN/PRED_MAIN_RECOMMEND.csv",
     "data/outputs/LightGCN/lightgcn_test.csv",
+    "data/processed/segment_personas_train_only.json",
 ]
 
 
