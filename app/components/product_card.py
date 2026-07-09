@@ -1,40 +1,17 @@
 """
 상품 카드 컴포넌트.
-아이콘: 상품 타입별 이모지 + st.container(border=True) 네이티브 렌더링.
-HTML/SVG를 사용하지 않아 st.markdown 파싱 문제 없음.
+아이콘: 상품 타입별 라인아트 PNG(app/static/images/products/, 41종)를 상품 색상(CSS filter:
+hue-rotate)으로 물들여 표시 — 원형 배지 없이 아이콘 자체가 상품명의 색상을 반영한다.
+이미지가 없는 타입(신규 상품 등)은 이모지(🏷️)로 폴백한다.
+HTML은 <img> 한 줄뿐이라 st.markdown 파싱 문제 없음.
 """
 import pandas as pd
 import streamlit as st
 
-# ── 상품 타입 → 이모지 매핑 ────────────────────────────────────────────────────
-_PRODUCT_EMOJI: dict[str, str] = {
-    # Electronics
-    "ssd": "💾", "keyboard": "⌨️", "headphones": "🎧", "smartwatch": "⌚",
-    "mouse": "🖱️", "speaker": "🔊", "monitor": "🖥️", "webcam": "📷",
-    # Home & Kitchen
-    "lamp": "💡", "coffee_maker": "☕", "vacuum": "🌀", "toaster": "🍞",
-    "air_fryer": "💨", "blender": "🥤", "cookware": "🍳",
-    # Beauty
-    "lipstick": "💄", "conditioner": "🧴", "serum": "💧", "shampoo": "🧴",
-    "sunscreen": "☀️", "moisturizer": "✨",
-    # Sports
-    "cycling_helmet": "⛑️", "tennis_racket": "🎾", "dumbbell": "🏋️",
-    "water_bottle": "🥤", "yoga_mat": "🧘",
-    # Fashion
-    "t-shirt": "👕", "jeans": "👖", "socks": "🧦", "sneakers": "👟",
-    "dress": "👗", "hoodie": "🧥", "jacket": "🧥",
-    # Books
-    "paperback": "📖", "hardcover": "📕", "e-book": "📱",
-    # Toys
-    "board_game": "♟️", "puzzle": "🧩", "building_blocks": "🧱",
-    "action_figure": "⚡", "doll": "🧸",
-}
+from utils.category_emoji import extract_color
+from utils.product_icons import icon_color_filter, icon_slug_for, icon_url
 
-
-def extract_color(name: str) -> str:
-    """상품명 뒤에서 두 번째 단어를 CSS 색상명으로 추출."""
-    parts = name.split()
-    return parts[-2] if len(parts) >= 2 else "gray"
+_FALLBACK_EMOJI = "🏷️"
 
 
 def extract_product_type(name: str) -> str:
@@ -61,14 +38,28 @@ def _badge_widget(badge: str | None) -> None:
         st.success(badge, icon=None)
 
 
-def _circle(color: str, emoji: str, size: int = 60) -> None:
-    """색상 원형 배경 + 이모지. 단일 라인 <div> → 코드블록 파싱 문제 없음."""
-    st.markdown(
-        f'<div style="width:{size}px;height:{size}px;border-radius:50%;background-color:{color};'
-        f'display:flex;align-items:center;justify-content:center;'
-        f'font-size:{size // 2 - 2}px;margin:0 auto 6px auto;">{emoji}</div>',
-        unsafe_allow_html=True,
-    )
+def _circle(color: str, product_type: str, size: int = 60) -> None:
+    """상품 타입 아이콘을 상품 색상으로 물들여 표시(원형 배지 없음). 단일 라인 <div> →
+    코드블록 파싱 문제 없음.
+
+    filter: hue-rotate()로 아이콘의 파란 베이스 색조를 상품 색상 쪽으로 회전시킨다 — 명도·
+    채도는 건드리지 않아 outline/채움 디테일이 그대로 유지된다(요청 반영: 원형 배지에 가두지
+    않고 아이콘 자체가 상품명의 색상을 반영하도록 변경. product_icons.icon_color_filter 참고).
+    """
+    slug = icon_slug_for(product_type)
+    if slug:
+        filter_css = icon_color_filter(color)
+        style = f"width:{size}px;height:{size}px;object-fit:contain;display:block;margin:0 auto 6px auto;"
+        if filter_css:
+            style += f"filter:{filter_css};"
+        icon_html = f'<img src="{icon_url(slug)}" alt="{product_type}" style="{style}" />'
+    else:
+        icon_html = (
+            f'<div style="width:{size}px;height:{size}px;display:flex;align-items:center;'
+            f'justify-content:center;font-size:{size // 2 - 2}px;margin:0 auto 6px auto;">'
+            f'{_FALLBACK_EMOJI}</div>'
+        )
+    st.markdown(icon_html, unsafe_allow_html=True)
 
 
 # ── Twiddler 순위 변동 배지 (카드 우상단) ────────────────────────────────────────
@@ -122,7 +113,6 @@ def render_product_card(
     """
     color = extract_color(item["name"])
     product_type = extract_product_type(item["name"])
-    emoji = _PRODUCT_EMOJI.get(product_type.lower().replace(" ", "_"), "🏷️")
 
     with st.container(border=True):
         if plain_rank_badge is not None:
@@ -132,7 +122,7 @@ def render_product_card(
         else:
             _corner_badge(None, None)  # 배지 없는 카드도 동일 높이 확보 → 원(circle) 위치 정렬
 
-        _circle(color, emoji)
+        _circle(color, product_type)
         st.write(f"**{item['name']}**")
         st.caption(item['category'])
         st.write(f"**$ {float(item['price_usd']):.2f}**")
@@ -154,12 +144,11 @@ def render_current_product_card(item: pd.Series) -> None:
     """상세 페이지용 현재 상품 가로형 강조 카드."""
     color = extract_color(item["name"])
     product_type = extract_product_type(item["name"])
-    emoji = _PRODUCT_EMOJI.get(product_type.lower().replace(" ", "_"), "🏷️")
 
     with st.container(border=True):
         col_icon, col_text = st.columns([1, 4])
         with col_icon:
-            _circle(color, emoji, size=56)
+            _circle(color, product_type, size=56)
         with col_text:
             st.write(f"**{item['name']}**")
             st.caption(f"{item['category']}  ·  $ {float(item['price_usd']):.2f}")
