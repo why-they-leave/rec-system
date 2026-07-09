@@ -37,6 +37,8 @@ data/outputs/complementary/*
 !data/dashboard/.gitkeep
 !data/outputs/ALS/.gitkeep
 !data/outputs/complementary/.gitkeep
+data/outputs/LightGCN/*
+!data/outputs/LightGCN/.gitkeep
 
 # 모델 아티팩트
 models/
@@ -82,3 +84,6 @@ docs/
 
 # 실행 로그
 logs/
+
+# GDrive 재업로드용 데이터 번들(app/utils/data_bootstrap.py가 생성/소비, 리포에는 커밋하지 않음)
+rec-system-data-required.zip

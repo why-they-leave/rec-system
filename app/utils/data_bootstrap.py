@@ -23,6 +23,8 @@ GDrive에 업로드된 데이터 번들을 내려받아 리포 루트에 압축 
     data/processed/df_integrated_logs.csv                         (graph_service — cutoff 이전 구매 판정)
     data/outputs/eval/twiddler_accuracy.csv                       (load_twiddler_eval — 오프라인 성능 지표)
     data/outputs/eval/twiddler_diversity.csv                      (load_twiddler_eval — 오프라인 성능 지표)
+    data/outputs/LightGCN/PRED_MAIN_RECOMMEND.csv                 (lightgcn_service — bipartite 추천, 유저별 top-100)
+    data/outputs/LightGCN/lightgcn_test.csv                       (evaluate_twiddler — bipartite 정답셋)
 
 data/processed/df_integrated_logs.csv(39MB)는 원본 로그 파생 파일치고 크지만, 다른 재학습
 파이프라인에서도 재사용되는 원본 그대로를 유지하기 위해 컬럼을 축소하지 않고 그대로 포함한다.
@@ -61,6 +63,8 @@ REQUIRED_FILES = [
     "data/processed/df_integrated_logs.csv",
     "data/outputs/eval/twiddler_accuracy.csv",
     "data/outputs/eval/twiddler_diversity.csv",
+    "data/outputs/LightGCN/PRED_MAIN_RECOMMEND.csv",
+    "data/outputs/LightGCN/lightgcn_test.csv",
 ]
 
 
