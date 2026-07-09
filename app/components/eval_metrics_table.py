@@ -4,12 +4,21 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 from plotly.subplots import make_subplots
-from utils.data_loader import get_user_twiddler_case, load_twiddler_eval
+from utils.data_loader import (
+    get_user_twiddler_case,
+    load_lightgcn_persona_accuracy,
+    load_lightgcn_persona_category_share,
+    load_lightgcn_persona_rank_shift,
+    load_twiddler_eval,
+)
 
 # src/evaluation/evaluate_twiddler.py::ALL_SEGMENTS_LABEL과 동일한 값 — population 전체 평균 버킷.
 _ALL_SEGMENTS_LABEL = "ALL"
 
-# context별 condition 라벨 — reports/UI_TAB_RESTRUCTURE_PLAN.md §Tab1 표기 그대로.
+# context별 condition 라벨(순서 = 비교 방향: 1번째가 기준/2번째가 비교 대상) —
+# reports/UI_TAB_RESTRUCTURE_PLAN.md §Tab1 표기 그대로. key 이름 자체는 "baseline"/"twiddler"가
+# 아니어도 된다(_grouped_bar_figure/_interpret_headline이 값을 하드코딩하지 않고
+# 이 dict의 key 순서로 동작) — lightgcn_persona처럼 bipartite/tripartite도 그대로 재사용 가능.
 _CONDITION_LABELS: dict[str, dict[str, str]] = {
     "main": {"baseline": "ALS only", "twiddler": "ALS+Twiddler"},
     "detail": {"baseline": "보완재 only", "twiddler": "보완재+Twiddler"},
@@ -17,10 +26,16 @@ _CONDITION_LABELS: dict[str, dict[str, str]] = {
         "baseline": "LightGCN bipartite only",
         "twiddler": "LightGCN bipartite+Twiddler",
     },
+    "lightgcn_persona": {
+        "bipartite": "bi-graph (페르소나 없음)",
+        "tripartite": "tri-graph (페르소나 있음)",
+    },
 }
-# baseline/twiddler 2계열 고정 색상 — seaborn "colorblind" 팔레트 첫 두 색(파랑/주황)과
-# 동일한 CVD-safe 조합(오늘 노트북들이 쓴 PALETTE와 통일, 카테고리 색은 절대 순환하지 않음).
-_CONDITION_COLORS: dict[str, str] = {"baseline": "#0173B2", "twiddler": "#DE8F05"}
+# 조건 2계열 고정 색상 — seaborn "colorblind" 팔레트 첫 두 색(파랑/주황)과 동일한 CVD-safe
+# 조합(오늘 노트북들이 쓴 PALETTE와 통일, 카테고리 색은 절대 순환하지 않음). context마다
+# condition의 실제 이름(baseline/twiddler, bipartite/tripartite 등)이 달라 이름이 아니라
+# _CONDITION_LABELS의 key 순서(0번째/1번째)로 색을 매긴다.
+_CONDITION_COLOR_SEQUENCE: list[str] = ["#0173B2", "#DE8F05"]
 
 _ACCURACY_COLS = ["condition", "k", "HR", "Recall", "NDCG", "eval_users"]
 _DIVERSITY_COLS = [
@@ -61,7 +76,7 @@ def _localize(df: pd.DataFrame, context: str, cols: list[str]) -> pd.DataFrame:
 def _grouped_bar_figure(
     df: pd.DataFrame, context: str, metrics: list[tuple[str, str]]
 ) -> go.Figure:
-    """condition(baseline/twiddler) 그룹 막대그래프 — 지표별 서브플롯, K가 x축.
+    """condition 그룹 막대그래프 — 지표별 서브플롯, K가 x축.
 
     범례는 첫 서브플롯에만 표시하고 나머지는 legendgroup으로 묶어 중복 노출을 막는다
     (지표가 2~3개뿐이라 범례 반복이 오히려 산만하다).
@@ -71,14 +86,14 @@ def _grouped_bar_figure(
     fig = make_subplots(rows=1, cols=len(metrics), subplot_titles=[title for _, title in metrics])
 
     for col, (metric_key, _title) in enumerate(metrics, start=1):
-        for condition in ("baseline", "twiddler"):
+        for idx, condition in enumerate(labels):
             sub = df[df["condition"] == condition].set_index("k").reindex(k_order)
             fig.add_trace(
                 go.Bar(
                     x=[f"K={k}" for k in k_order],
                     y=sub[metric_key],
                     name=labels[condition],
-                    marker_color=_CONDITION_COLORS[condition],
+                    marker_color=_CONDITION_COLOR_SEQUENCE[idx % len(_CONDITION_COLOR_SEQUENCE)],
                     text=sub[metric_key].round(4),
                     textposition="outside",
                     legendgroup=condition,
@@ -105,20 +120,22 @@ def _interpret_headline(
     metric_label: str,
     higher_is_better: bool,
 ) -> str:
-    """baseline→twiddler 변화율을 K별로 계산해 한 줄 해석 문구를 만든다.
+    """1번째→2번째 condition 변화율을 K별로 계산해 한 줄 해석 문구를 만든다.
 
     K마다 방향이 엇갈릴 수 있어(예: HR@5 개선, HR@10 하락) "전반적으로 개선됐다"처럼
     단정하지 않고, 실제 계산된 숫자를 K별로 그대로 보여준 뒤 방향이 갈리면 그 사실 자체를
     알린다 — 없는 경향을 있는 것처럼 보여주지 않기 위함(하드코딩 문구 대신 CSV 재계산 때마다
     자동 갱신되도록 설계, #10 이슈의 "숫자-표시 불일치" 재발 방지).
     """
+    labels = _CONDITION_LABELS[context]
+    cond1, cond2 = list(labels)
     pivot = df.pivot(index="k", columns="condition", values=metric_key).sort_index()
-    if "baseline" not in pivot.columns or "twiddler" not in pivot.columns:
+    if cond1 not in pivot.columns or cond2 not in pivot.columns:
         return ""
 
     parts, directions = [], []
     for k, row in pivot.iterrows():
-        base, twid = row["baseline"], row["twiddler"]
+        base, twid = row[cond1], row[cond2]
         if pd.isna(base) or pd.isna(twid) or base == 0:
             continue
         delta_pct = (twid - base) / base * 100
@@ -137,7 +154,7 @@ def _interpret_headline(
     else:
         verdict = "K에 따라 효과가 엇갈림 — 특정 K에 최적화하면 다른 K가 희생될 수 있음"
 
-    return f"💡 {metric_label} 변화 ({_CONDITION_LABELS[context]['twiddler']} vs baseline): {', '.join(parts)} — {verdict}"
+    return f"💡 {metric_label} 변화 ({labels[cond2]} vs {labels[cond1]}): {', '.join(parts)} — {verdict}"
 
 
 def _render_metric_section(
@@ -240,6 +257,113 @@ def render_eval_metrics(context: str, persona_label: str | None = None) -> None:
         key=f"div_seg_{context}",
         headline=("repetition_rate", "반복률", False),
     )
+
+
+def _category_share_figure(df: pd.DataFrame) -> go.Figure:
+    """카테고리별 구성비 그룹 막대그래프 — bi-graph/tri-graph 나란히, 카테고리가 x축."""
+    labels = _CONDITION_LABELS["lightgcn_persona"]
+    category_order = (
+        df.groupby("category")["share"].mean().sort_values(ascending=False).index.tolist()
+    )
+    fig = go.Figure()
+    for idx, condition in enumerate(labels):
+        sub = df[df["condition"] == condition].set_index("category").reindex(category_order)
+        fig.add_trace(
+            go.Bar(
+                x=category_order,
+                y=sub["share"],
+                name=labels[condition],
+                marker_color=_CONDITION_COLOR_SEQUENCE[idx % len(_CONDITION_COLOR_SEQUENCE)],
+                text=(sub["share"] * 100).round(1).astype(str) + "%",
+                textposition="outside",
+            )
+        )
+    fig.update_layout(
+        barmode="group",
+        height=350,
+        margin={"l": 10, "r": 10, "t": 30, "b": 10},
+        legend={"orientation": "h", "yanchor": "bottom", "y": 1.08, "xanchor": "center", "x": 0.5},
+        yaxis_tickformat=".0%",
+    )
+    return fig
+
+
+def render_lightgcn_persona_accuracy() -> None:
+    """bi-graph vs tri-graph HR@K/Recall@K/NDCG@K 비교.
+
+    src/evaluation/evaluate_lightgcn_persona_effect.py가 생성한
+    data/outputs/eval/lightgcn_persona_accuracy.csv를 읽는다(twiddler 효과가 아니라
+    그래프에 페르소나 노드를 추가했을 때의 효과라 evaluate_twiddler.py와는 별개 산출물).
+    """
+    try:
+        df = load_lightgcn_persona_accuracy()
+    except FileNotFoundError:
+        st.info(
+            "🚧 아직 계산되지 않았습니다. "
+            "`python -m src.evaluation.evaluate_lightgcn_persona_effect` 실행 후 "
+            "`data/outputs/eval/lightgcn_persona_accuracy.csv`를 읽어옵니다."
+        )
+        return
+    _render_metric_section(
+        df,
+        "lightgcn_persona",
+        _ACCURACY_METRICS,
+        _ACCURACY_COLS,
+        key="acc_lightgcn_persona",
+        headline=("HR", "HR@K", True),
+    )
+
+
+def render_lightgcn_persona_rank_shift_and_category() -> None:
+    """페르소나 유무에 따른 순위 이동 + 카테고리 구성비 비교.
+
+    같은 유저에게 bi-graph/tri-graph가 공통으로 추천한 아이템의 순위가 얼마나 다른지(순위
+    이동), top-K 추천의 카테고리 구성비가 얼마나 다른지를 보여준다 — HR/NDCG 같은 정확도
+    지표와 달리 "추천 결과 자체의 성격"이 페르소나 유무로 어떻게 달라지는지에 초점.
+    """
+    try:
+        rank_df = load_lightgcn_persona_rank_shift()
+        category_df = load_lightgcn_persona_category_share()
+    except FileNotFoundError:
+        st.info(
+            "🚧 아직 계산되지 않았습니다. "
+            "`python -m src.evaluation.evaluate_lightgcn_persona_effect` 실행 후 "
+            "`data/outputs/eval/lightgcn_persona_{rank_shift,category_share}.csv`를 읽어옵니다."
+        )
+        return
+
+    row = rank_df.iloc[0]
+    col1, col2 = st.columns(2)
+    col1.metric(
+        f"top-{int(row['k'])} 겹침 비율",
+        f"{row['mean_overlap_ratio'] * 100:.1f}%",
+        help="같은 유저에게 bi-graph/tri-graph가 공통으로 추천한 아이템의 비율",
+    )
+    col2.metric(
+        "겹치는 아이템의 평균 순위 이동",
+        f"{row['mean_abs_rank_shift']:.1f}단계",
+        help="두 그래프 모두 추천한 아이템의 순위가 평균적으로 몇 단계 차이나는지",
+    )
+    st.caption(
+        f"평가 유저 {int(row['n_users']):,}명 · "
+        f"겹치는 아이템-유저 쌍 {int(row['n_overlapping_pairs']):,}개"
+    )
+
+    st.markdown("**카테고리 구성비 비교**")
+    st.plotly_chart(
+        _category_share_figure(category_df),
+        width="stretch",
+        key="category_share_lightgcn_persona",
+        config={"displayModeBar": False},
+    )
+    with st.expander("표로 보기"):
+        localized = category_df.copy()
+        localized["condition"] = (
+            localized["condition"]
+            .map(_CONDITION_LABELS["lightgcn_persona"])
+            .fillna(localized["condition"])
+        )
+        st.dataframe(localized, hide_index=True, width="stretch")
 
 
 def render_user_twiddler_case(user_id: int, heading: str = "Twiddler 재랭킹 근거") -> None:

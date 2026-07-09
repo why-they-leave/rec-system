@@ -29,7 +29,7 @@ class TestResolveArtifactPath:
         (tmp_path / "PRED_MAIN_RECOMMEND_bipartite.csv").write_text("x")
         (tmp_path / "PRED_MAIN_RECOMMEND.csv").write_text("legacy")
 
-        resolved = lightgcn_service._resolve_artifact_path("bipartite")
+        resolved = lightgcn_service.resolve_artifact_path("bipartite")
 
         assert resolved == tmp_path / "PRED_MAIN_RECOMMEND_bipartite.csv"
 
@@ -37,7 +37,7 @@ class TestResolveArtifactPath:
         monkeypatch.setattr(lightgcn_service, "_ARTIFACT_DIR", tmp_path)
         (tmp_path / "PRED_MAIN_RECOMMEND.csv").write_text("legacy")
 
-        resolved = lightgcn_service._resolve_artifact_path("bipartite")
+        resolved = lightgcn_service.resolve_artifact_path("bipartite")
 
         assert resolved == tmp_path / "PRED_MAIN_RECOMMEND.csv"
 
@@ -45,14 +45,14 @@ class TestResolveArtifactPath:
         monkeypatch.setattr(lightgcn_service, "_ARTIFACT_DIR", tmp_path)
         (tmp_path / "PRED_MAIN_RECOMMEND.csv").write_text("legacy")
 
-        resolved = lightgcn_service._resolve_artifact_path("tripartite")
+        resolved = lightgcn_service.resolve_artifact_path("tripartite")
 
         assert resolved is None
 
     def test_returns_none_when_no_file_exists(self, tmp_path, monkeypatch):
         monkeypatch.setattr(lightgcn_service, "_ARTIFACT_DIR", tmp_path)
 
-        assert lightgcn_service._resolve_artifact_path("bipartite") is None
+        assert lightgcn_service.resolve_artifact_path("bipartite") is None
 
 
 class TestGetRecommendations:

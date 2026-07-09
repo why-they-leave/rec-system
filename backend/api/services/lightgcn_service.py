@@ -42,7 +42,7 @@ _MESSAGES = {
 _recs_cache: dict[str, dict[int, list[dict]]] = {}
 
 
-def _resolve_artifact_path(graph_type: str) -> Path | None:
+def resolve_artifact_path(graph_type: str) -> Path | None:
     """graph_type에 맞는 CSV 경로를 찾는다 — 후보 목록 순서대로 먼저 존재하는 파일 사용."""
     for filename in _ARTIFACT_FILENAME_CANDIDATES[graph_type]:
         candidate = _ARTIFACT_DIR / filename
@@ -56,7 +56,7 @@ def _load_recs(graph_type: str) -> dict[int, list[dict]] | None:
     if graph_type in _recs_cache:
         return _recs_cache[graph_type]
 
-    artifact_path = _resolve_artifact_path(graph_type)
+    artifact_path = resolve_artifact_path(graph_type)
     if artifact_path is None:
         return None
 

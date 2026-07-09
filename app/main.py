@@ -40,6 +40,8 @@ if _data_file_id:
 import pandas as pd  # noqa: E402
 from components.eval_metrics_table import (  # noqa: E402
     render_eval_metrics,
+    render_lightgcn_persona_accuracy,
+    render_lightgcn_persona_rank_shift_and_category,
     render_user_twiddler_case,
 )
 from components.glossary import render_glossary  # noqa: E402
@@ -792,9 +794,13 @@ def _render_rerank_main(
         return
 
     st.title("추천 비교")
+    # 유저 식별 정보(User/HEAVY/페르소나명)만 검정으로 강조하고 나머지 설명은 기존
+    # 캡션 색(진한 슬레이트)을 유지한다(요청 반영: "이 부분은 검정색으로").
     st.caption(
-        f"User {user_id:05d} · {user_info['user_type_label'].upper()} · "
-        f"{user_info['persona_label']} 기준으로 Before/After 추천 순위를 비교합니다."
+        f'<span style="color:#000000;">User {user_id:05d} · '
+        f"{user_info['user_type_label'].upper()} · {user_info['persona_label']}</span> "
+        "기준으로 Before/After 추천 순위를 비교합니다.",
+        unsafe_allow_html=True,
     )
     render_user_summary_card(user_id, user_info, show_persona=False)
     # "왜 이렇게 재정렬됐는지"(alpha/decay/선호 카테고리)는 실제 Before/After 비교
@@ -965,8 +971,10 @@ def _render_persona_tab(
 
     추천 결과 카드 자체는 "추천 비교" 탭에서 이미 보여주므로 여기서 중복으로 그리지
     않는다(요청 반영: 팀원 피드백 — "추천 결과는 트위들러탭에서 보여주니까 효과해석은
-    지금 비워진 두 부분만 들어가도 될 것 같다"). LightGCN 모델 학습이 끝나면 두 정량
-    비교(bi vs tri HR@K/NDCG@K, 페르소나 유무 순위·카테고리 분포)를 이 자리에 채운다.
+    지금 비워진 두 부분만 들어가도 될 것 같다"). 두 정량 비교(bi vs tri HR@K/NDCG@K,
+    페르소나 유무 순위·카테고리 분포)는 retail-clickstream-analysis #41(tri/bipartite
+    CSV 파일명 분리) 이후 tri 학습 산출물이 생겨 계산 가능해졌다 —
+    src/evaluation/evaluate_lightgcn_persona_effect.py 배치 스크립트 실행 결과를 읽어온다.
     """
     st.title("효과 해석")
     st.caption(
@@ -982,11 +990,11 @@ def _render_persona_tab(
 
     st.divider()
     st.markdown("### bi-graph vs tri-graph 정량 비교 (HR@K / NDCG@K)")
-    st.info("🚧 LightGCN 모델 학습 완료 후 추가될 예정입니다.")
+    render_lightgcn_persona_accuracy()
 
     st.divider()
     st.markdown("### 페르소나 유무에 따른 순위 · 카테고리 분포 비교")
-    st.info("🚧 LightGCN 모델 학습 완료 후 추가될 예정입니다.")
+    render_lightgcn_persona_rank_shift_and_category()
 
     st.divider()
     render_user_graph(user_id)

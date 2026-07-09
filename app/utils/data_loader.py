@@ -13,10 +13,10 @@ from backend.api.core import get_user_twiddler_case as _get_user_twiddler_case_c
 from backend.api.core import reset_user_exposure as _reset_user_exposure_core
 
 DATA_SOURCE = "sqlite"  # "csv" 또는 "sqlite" — 카탈로그성 데이터(상품/유저)에만 적용.
-                        # recommend.db는 scripts/generate_demo_data.py가 생성한다.
-                        # 추천 데이터는 backend.api.core를 Streamlit 프로세스 안에서 직접 호출한다
-                        # (HTTP 왕복 없음 — Streamlit Community Cloud처럼 프로세스를 하나만
-                        # 띄울 수 있는 환경에서도 동작하게 하기 위함).
+# recommend.db는 scripts/generate_demo_data.py가 생성한다.
+# 추천 데이터는 backend.api.core를 Streamlit 프로세스 안에서 직접 호출한다
+# (HTTP 왕복 없음 — Streamlit Community Cloud처럼 프로세스를 하나만
+# 띄울 수 있는 환경에서도 동작하게 하기 위함).
 DATA_DIR = Path("data/dashboard")
 SQLITE_PATH = DATA_DIR / "recommend.db"
 EVAL_DIR = Path("data/outputs/eval")
@@ -24,9 +24,9 @@ EVAL_DIR = Path("data/outputs/eval")
 # products.csv 원본 컬럼: product_id, category, name, price_usd, cost_usd, margin_usd
 # UI에서는 item_id 로 통일하여 사용
 _PRODUCTS_RENAME = {"product_id": "item_id"}
-_PRODUCTS_COLS   = ["item_id", "name", "category", "price_usd"]
+_PRODUCTS_COLS = ["item_id", "name", "category", "price_usd"]
 
-_MAIN_REC_COLUMNS   = ["user_id", "item_id", "score", "rank", "model_type", "twiddler", "user_type"]
+_MAIN_REC_COLUMNS = ["user_id", "item_id", "score", "rank", "model_type", "twiddler", "user_type"]
 _DETAIL_REC_COLUMNS = ["item_id", "rec_item_id", "score", "rank", "twiddler"]
 
 
@@ -70,6 +70,24 @@ def load_twiddler_eval() -> tuple[pd.DataFrame, pd.DataFrame]:
     return accuracy_df, diversity_df
 
 
+@st.cache_data
+def load_lightgcn_persona_accuracy() -> pd.DataFrame:
+    """src/evaluation/evaluate_lightgcn_persona_effect.py가 생성한 bi/tri HR@K 비교 CSV."""
+    return pd.read_csv(EVAL_DIR / "lightgcn_persona_accuracy.csv")
+
+
+@st.cache_data
+def load_lightgcn_persona_rank_shift() -> pd.DataFrame:
+    """evaluate_lightgcn_persona_effect.py가 생성한 bi/tri 순위 이동 비교 CSV(단일 행)."""
+    return pd.read_csv(EVAL_DIR / "lightgcn_persona_rank_shift.csv")
+
+
+@st.cache_data
+def load_lightgcn_persona_category_share() -> pd.DataFrame:
+    """evaluate_lightgcn_persona_effect.py가 생성한 bi/tri 카테고리 구성비 비교 CSV."""
+    return pd.read_csv(EVAL_DIR / "lightgcn_persona_category_share.csv")
+
+
 def _main_rec_df(user_id: int, items: list[dict], model_type: str, twiddler: str) -> pd.DataFrame:
     rows = [
         {
@@ -107,7 +125,10 @@ def get_main_recommendations(
 
 
 def simulate_next_session(
-    user_id: int, top_n: int = 10, model_type: str = "ALS", graph_type: str = "tripartite",
+    user_id: int,
+    top_n: int = 10,
+    model_type: str = "ALS",
+    graph_type: str = "tripartite",
 ) -> tuple[pd.DataFrame, str, str | None]:
     """새로고침 시뮬레이션 전용 — 캐시를 붙이지 않는다.
 
