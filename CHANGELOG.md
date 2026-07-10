@@ -76,6 +76,7 @@
 
 ### 문서
 
+- CHANGELOG 자동 업데이트 [skip ci] ([c02ffcc](https://github.com/JungYeoni/da-template/commit/c02ffccfb5854dee804f049f4580c42abf8d917b))
 - CHANGELOG 자동 업데이트 [skip ci] ([c3a33ca](https://github.com/JungYeoni/da-template/commit/c3a33ca5452bb5b2aa5afc3170b1e122a829f8c3))
 - CHANGELOG 자동 업데이트 [skip ci] ([5d358ab](https://github.com/JungYeoni/da-template/commit/5d358ab259d3675f4b7f568098694add11d1eebd))
 - #4 UI 탭 재구성·유저 그래프 계획 갱신, Twiddler 설명 기능 계획 추가 ([4654cf0](https://github.com/JungYeoni/da-template/commit/4654cf011680e793f8fe63f9fc715702ffd3c9e9))
