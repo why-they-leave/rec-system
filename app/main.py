@@ -51,6 +51,7 @@ from components.product_card import (  # noqa: E402
     render_current_product_card,
     render_product_card,
 )
+from components.project_about import render_project_about  # noqa: E402
 from components.project_intro import render_project_intro  # noqa: E402
 from components.team_page import render_team_page  # noqa: E402
 from components.user_graph import render_user_graph  # noqa: E402
@@ -109,7 +110,9 @@ def _render_top_navbar() -> None:
     밖 맨 위 줄로 분리했다. 탭 버튼 로직은 그대로 두고 위치만 옮긴 것이라 각 버튼은
     기존과 동일하게 session_state["main_tab"]만 바꾸고 st.rerun()한다.
     """
-    current_tab = st.session_state.get("main_tab", "rerank")
+    # 새로고침(세션 초기화) 시 처음 보이는 화면은 "추천 비교"가 아니라 "프로젝트 소개"
+    # 여야 한다(요청 반영) — 데모 체험 전에 프로젝트 맥락부터 보게 한다.
+    current_tab = st.session_state.get("main_tab", "project")
 
     # ── 로고 + 브랜드명 — 맨 위, nav 카드 밖에 독립된 줄로 ────────────────────────
     col_logo, col_brand, _col_brand_spacer = st.columns([0.35, 1.2, 4], vertical_alignment="center")
@@ -130,12 +133,12 @@ def _render_top_navbar() -> None:
     )
     with col_b0:
         if st.button(
-            "데모 안내",
+            "프로젝트 소개",
             key="topnav_project",
             type="primary" if current_tab == "project" else "tertiary",
         ):
             st.session_state["main_tab"] = "project"
-            st.session_state["project_page"] = "intro"
+            st.session_state["project_page"] = "about"
             st.session_state["view"] = "main"
             st.rerun()
     with col_b1:
@@ -178,7 +181,7 @@ def _setup_sidebar() -> tuple[list[str], set[str] | None, pd.DataFrame | None]:
     # 사이드바가 접혔을 때 본문 좌상단에 뜨는 작은 아이콘 — 로고/브랜드 본문은 상단바로
     # 옮겼으므로 image에는 투명 placeholder만 남긴다.
     st.logo(str(_LOGO_BLANK_PATH), icon_image=str(_LOGO_PATH), size="large")
-    current_tab = st.session_state.get("main_tab", "rerank")
+    current_tab = st.session_state.get("main_tab", "project")
 
     try:
         demo_users = load_demo_users()
@@ -193,11 +196,12 @@ def _setup_sidebar() -> tuple[list[str], set[str] | None, pd.DataFrame | None]:
     selected_types: set[str] = set()
     if current_tab == "project":
         project_pages = [
-            ("데모 소개", "intro"),
+            ("프로젝트 소개", "about"),
+            ("데모 안내", "intro"),
             ("용어 해석", "glossary"),
             ("팀 소개", "team"),
         ]
-        current_project_page = st.session_state.get("project_page", "intro")
+        current_project_page = st.session_state.get("project_page", "about")
         # 항상 펼쳐진(expanded=True) expander는 접었다 펼 일이 없는데도 체브론+박스
         # 테두리가 붙어 "카테고리 필터"(제목만 있는 plain markdown)와 톤이 안 맞고,
         # 버튼 사이 기본 세로 gap도 커서 부자연스럽다는 피드백(요청 반영) — 다른 사이드바
@@ -1215,8 +1219,9 @@ def main() -> None:
     if "view" not in st.session_state:
         st.session_state["view"] = "main"
     if "main_tab" not in st.session_state:
-        # 접속 시 기본 진입 탭 — Twiddler 재랭킹(요청 반영).
-        st.session_state["main_tab"] = "rerank"
+        # 접속 시 기본 진입 탭 — 프로젝트 소개(요청 반영: "새로고침 시 기본 페이지
+        # 프로젝트 소개로 오게 수정" — 데모 체험 전에 프로젝트 맥락부터 보게 한다).
+        st.session_state["main_tab"] = "project"
     if st.session_state.get("main_tab") in ("glossary", "team"):
         st.session_state["project_page"] = st.session_state["main_tab"]
         st.session_state["main_tab"] = "project"
@@ -1228,7 +1233,7 @@ def main() -> None:
         st.warning("데이터를 불러올 수 없어 유저를 선택할 수 없습니다.")
         return
 
-    main_tab = st.session_state.get("main_tab", "rerank")
+    main_tab = st.session_state.get("main_tab", "project")
     view = st.session_state["view"]
     if main_tab == "rerank":
         if view == "main":
@@ -1240,13 +1245,15 @@ def main() -> None:
     elif main_tab == "userlist":
         render_user_list(demo_users_df)
     elif main_tab == "project":
-        project_page = st.session_state.get("project_page", "intro")
+        project_page = st.session_state.get("project_page", "about")
         if project_page == "glossary":
             render_glossary()
         elif project_page == "team":
             render_team_page()
-        else:
+        elif project_page == "intro":
             render_project_intro()
+        else:
+            render_project_about()
 
 
 main()
