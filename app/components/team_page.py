@@ -80,6 +80,13 @@ TEAM_MEMBERS: list[dict] = [
 ]
 
 
+def _affiliation_text(member: dict) -> str:
+    """이름 옆에 붙일 "학교 학과" — 복수전공이 있어도 첫 학과만 쓴다(요청 반영: "세종대학교
+    데이터사이언스학과"처럼 학교+학과 하나만)."""
+    university, department, *_extra_majors = member["affiliations"]
+    return f"{university} {department}"
+
+
 def _render_github_link(member: dict) -> None:
     # st.link_button은 텍스트만 지원해 GitHub 로고를 못 넣는다 — 실제 로고 이미지
     # (app/static/images/github_logo.png)를 쓰는 커스텀 <a> 앵커로 대체.
@@ -136,7 +143,11 @@ def render_team_page() -> None:
     st.markdown('<hr class="team-divider">', unsafe_allow_html=True)
 
     for member in members:
-        st.markdown(f'<div class="team-bio-name">{member["name"]}</div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="team-bio-name">{member["name"]} '
+            f'<span class="team-bio-affiliation">({_affiliation_text(member)})</span></div>',
+            unsafe_allow_html=True,
+        )
         # 발표자료("07. 결론 - 느낀 점") 내용으로 소개 문단을 교체한다(요청 반영:
         # "지금 들어가있는 문장을 저걸로 교체해달라는 건" — 별도 카드로 추가하는 게
         # 아니라 기존 자기소개 문단 자리를 대체).

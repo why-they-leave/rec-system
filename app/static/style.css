@@ -1189,6 +1189,14 @@
     text-underline-offset: 4px;
     margin-bottom: 6px;
 }
+/* 이름 옆 "(학교 학과)" — 이름 자체보다 덜 강조되게 밑줄 없이 옅은 색으로 뺀다
+ * (요청 반영: "이름 옆에 이전에 적었던 학교만 적어줄 수 있음?"). */
+.team-bio-affiliation {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #64748b;
+    text-decoration: none;
+}
 .team-bio-text {
     font-size: 0.9rem;
     line-height: 1.7;
