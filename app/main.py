@@ -13,7 +13,12 @@ _LOGO_PATH = _STATIC_DIR / "logo2.png"
 # icon_image로만 실제 로고를 넘겨 "사이드바 접힘 시에만" 작은 아이콘이 뜨게 한다(요청 반영).
 _LOGO_BLANK_PATH = _STATIC_DIR / "logo_blank.png"
 
-st.set_page_config(page_title="추크크✨", page_icon=str(_LOGO_PATH), layout="wide")
+st.set_page_config(
+    page_title="추크크✨",
+    page_icon=str(_LOGO_PATH),
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
 _ROOT_DIR = _APP_DIR.parent
 if str(_APP_DIR) not in sys.path:
