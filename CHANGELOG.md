@@ -46,6 +46,7 @@
 
 ### 리팩터링
 
+- 추천 효과탬 오류 수정 ([2011cd5](https://github.com/JungYeoni/da-template/commit/2011cd5dcc06a25855bb4d6aab5b53ec6ca17d63))
 - #10 깃허브 CI error 해결 ([bf8a518](https://github.com/JungYeoni/da-template/commit/bf8a51880e3784f4df7cd80923e45977488edf25))
 - 보완재에서도 UI 일치 ([cc4fa27](https://github.com/JungYeoni/da-template/commit/cc4fa27a7d792004df46849966217b11affc7ad9))
 - 사라졌던 Twiddler 재랭킹 근거 복구 ([6360ffb](https://github.com/JungYeoni/da-template/commit/6360ffbd95c78a26eb8c30126e5dfe4dbfe2ba5c))
@@ -74,6 +75,7 @@
 
 ### 문서
 
+- CHANGELOG 자동 업데이트 [skip ci] ([5d358ab](https://github.com/JungYeoni/da-template/commit/5d358ab259d3675f4b7f568098694add11d1eebd))
 - #4 UI 탭 재구성·유저 그래프 계획 갱신, Twiddler 설명 기능 계획 추가 ([4654cf0](https://github.com/JungYeoni/da-template/commit/4654cf011680e793f8fe63f9fc715702ffd3c9e9))
 - #4 백엔드 통합 계획서 및 Streamlit UI 설계서 갱신 ([44231b6](https://github.com/JungYeoni/da-template/commit/44231b684b2b9c2803800b0a183a06cd69bc5bc0))
 - CHANGELOG 자동 업데이트 [skip ci] ([82e6bef](https://github.com/JungYeoni/da-template/commit/82e6bef1cf0df43a6b7abbe94130a7daee0ca8ca))
