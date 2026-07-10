@@ -29,6 +29,7 @@
 
 ### style
 
+- 팀 소개 이름 옆에 학교·학과 표기 추가 ([18405a0](https://github.com/JungYeoni/da-template/commit/18405a0e9edb5616f2381f54b493174686ab219a))
 - Ruff-format 자동 정리 ([d205e26](https://github.com/JungYeoni/da-template/commit/d205e26677a498a5bd57dd6bfc19769f276a0ddf))
 - 재랭킹 근거 캡션 색상을 다른 섹션 캡션 톤과 통일 (#10) ([21dda8d](https://github.com/JungYeoni/da-template/commit/21dda8df675a4630ddf160369db6226800a4c774))
 - 효과 해석 사이드바 앵커 메뉴, 지표 해석 캡션 리디자인, 툴팁/버튼 다듬기 (#10) ([3b7f05d](https://github.com/JungYeoni/da-template/commit/3b7f05d7d90e55c1c757baa2bc0f9c6543f1b66a))
@@ -77,6 +78,7 @@
 
 ### 문서
 
+- CHANGELOG 자동 업데이트 [skip ci] ([03540b0](https://github.com/JungYeoni/da-template/commit/03540b0016352e0afe9fdcc0779f0e4a859e4832))
 - CHANGELOG 자동 업데이트 [skip ci] ([ddef764](https://github.com/JungYeoni/da-template/commit/ddef764b9a8d7ac01979c04aecdf85d264f4b2a9))
 - CHANGELOG 자동 업데이트 [skip ci] ([c02ffcc](https://github.com/JungYeoni/da-template/commit/c02ffccfb5854dee804f049f4580c42abf8d917b))
 - CHANGELOG 자동 업데이트 [skip ci] ([c3a33ca](https://github.com/JungYeoni/da-template/commit/c3a33ca5452bb5b2aa5afc3170b1e122a829f8c3))
