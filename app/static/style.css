@@ -22,6 +22,16 @@
     margin-right: auto !important;
 }
 
+/* ===== 사이드바 닫힘 시 본문 폭 확장 =====
+ * 위 1600px 상한은 사이드바가 열려있는 걸 전제로 잡은 값이라, 사이드바를 닫아
+ * 화면이 넓어져도 본문이 그대로 1600px에 묶여 있었다(요청으로 확인). 사이드바의
+ * aria-expanded="false"를 :has()로 감지해, 닫혀 있을 때만 상한을 넓힌다.
+ */
+[data-testid="stAppViewContainer"]:has([data-testid="stSidebar"][aria-expanded="false"])
+    [data-testid="stMainBlockContainer"] {
+    max-width: 1900px !important;
+}
+
 /* ===== 전체 세로 여백 =====
  * 기본값(~1rem)은 너무 헐렁하다는 피드백으로 0.5rem까지 줄였다가, 이번엔 반대로
  * 너무 빡빡하다는 피드백을 받아 그 중간값으로 다시 조정(요청 반영).
@@ -1018,12 +1028,18 @@
  * Streamlit 기본 사이드바 폭(21rem≈336px)은 카테고리 필터/모델 선택 리스트만 담기엔
  * 넓다 — 좁혀서 본문에 더 폭을 준다. 실제 폭을 정하는 요소가 stSidebar 자체와 그
  * 바로 안쪽 div 둘 다라 함께 짚는다(하나만 주면 안 줄어드는 경우가 있어 확인 후 둘 다 고정).
+ *
+ * aria-expanded="true"(펼침 상태)로 범위를 좁혔다 — 원래는 상태 구분 없이 항상
+ * 260px !important였는데, 이 !important가 Streamlit이 접힘 시 적용하는 인라인
+ * width(0에 가까운 값)까지 덮어써버려서 사이드바를 닫아도 실제 DOM 박스가 260px를
+ * 계속 차지했다. 그 결과 본문이 넓어질 공간 자체가 생기지 않아 "사이드바를 닫아도
+ * 화면 폭이 안 늘어난다"는 문제가 있었다(요청으로 재현·확인).
  */
-[data-testid="stSidebar"] {
+[data-testid="stSidebar"][aria-expanded="true"] {
     width: 260px !important;
     min-width: 260px !important;
 }
-[data-testid="stSidebar"] > div {
+[data-testid="stSidebar"][aria-expanded="true"] > div {
     width: 260px !important;
 }
 
