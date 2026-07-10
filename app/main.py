@@ -952,7 +952,13 @@ def _render_rerank_main(
         st.divider()
         # 이 미리보기는 항상 ALS 기준으로 고정돼 있다(사이드바 모델 선택과 무관) —
         # 오해 없도록 라벨에 명시한다(요청 반영: "ALS 모델이라고 쓰라").
-        st.markdown("**Twiddler 적용 전 추천 (ALS 기준)**")
+        # 글자 크기를 한 단계 줄여달라는 요청 반영 — 기본 굵은 텍스트(1rem)보다 한
+        # 단계 작은 0.9rem으로.
+        st.markdown(
+            '<span style="font-size:0.9rem; font-weight:700;">'
+            "Twiddler 적용 전 추천 (ALS 기준)</span>",
+            unsafe_allow_html=True,
+        )
         try:
             products_df = load_products()
             preview_df, _, _ = get_main_recommendations(

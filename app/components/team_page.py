@@ -16,6 +16,9 @@ TEAM_MEMBERS: list[dict] = [
         "image": "gustj1819.png",
         "speech": "hyunseo_speech.png",
         "affiliations": ["이화여자대학교", "통계학과", "불어불문학과"],
+        # 본인이 직접 준 문구로 소개 문단 첫 문장만 교체(요청 반영) — 나머지 팀원은
+        # affiliations 기반 자동 생성 문장을 그대로 쓴다.
+        "bio_intro": "이화여자대학교 통계학과 · 불어불문과를 다니고 있는 24기 박현서입니다!",
         "goal": "데이터를 전략의 뼈대로 세우고 싶다",
         "goal_note": "이탈 문제의 궁극적 해결책",
         "roles": ["데이터 전처리, EDA", "보완재 파이프라인"],
@@ -54,12 +57,19 @@ TEAM_MEMBERS: list[dict] = [
 
 
 def _member_bio_text(member: dict) -> str:
-    """팀원 소개 문단. 소속/목표/역할 데이터를 1인칭 서술로 풀어 쓴다."""
-    university, *departments = member["affiliations"]
+    """팀원 소개 문단. 소속/목표/역할 데이터를 1인칭 서술로 풀어 쓴다.
+
+    bio_intro가 있으면 본인이 직접 준 문장을 첫 문장으로 그대로 쓰고(요청 반영),
+    없으면 affiliations로 자동 생성한다.
+    """
     roles_text = ", ".join(member["roles"])
+    if member.get("bio_intro"):
+        intro = member["bio_intro"]
+    else:
+        university, *departments = member["affiliations"]
+        intro = f'{university} {" · ".join(departments)}에서 온 {member["name"]}입니다.'
     return (
-        f'{university} {" · ".join(departments)}에서 온 {member["name"]}입니다. '
-        f'"{member["goal"]}"는 마음으로 참여했고({member["goal_note"]}), '
+        f'{intro} "{member["goal"]}"는 마음으로 참여했고({member["goal_note"]}), '
         f"이번 프로젝트에서는 {roles_text}를 맡았습니다."
     )
 

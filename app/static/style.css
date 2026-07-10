@@ -513,9 +513,12 @@
      * 가로 대신 세로로 바꾼다(요청 반영: "이거 두개를 같은 줄에 놓고 싶어. 두 열로").
      * 배경색만으로는 경계가 흐릿해 박스로 안 보인다는 피드백으로(요청 반영: "박스 안에
      * 넣어줘") 다른 카드(.product-card 등)와 같은 톤의 테두리를 추가한다. */
+    /* 배경 #f8fafc이 셀렉트박스(흰색)와 거의 구분이 안 된다는 피드백으로(요청 반영:
+     * "선택창이랑 설명창이랑 색이 같은데") 이 앱에서 이미 쓰는 인디고 틴트(.intro-demo-tags
+     * span, --badge-default-bg 등과 동일 톤)로 바꿔 두 영역이 뚜렷이 구분되게 한다. */
     display: flex;
     align-items: stretch;
-    background: #f8fafc;
+    background: #eef2ff;
     border: 1px solid var(--card-border);
     border-radius: var(--card-radius);
     padding: 12px 16px;
@@ -1448,6 +1451,36 @@
     line-height: 1.5;
     margin: 0;
 }
+/* "우리는 이런 걸 하고자 했어요" — 프로젝트 동기 한 문단(요청 반영). */
+.intro-goal-text {
+    color: #334155;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    /* 820px로 제한했더니 긴 문장이 중간에 줄바꿈됐다(요청 반영: "한 줄에 있어야지") —
+     * 본문 컨테이너 폭까지 그대로 쓰게 캡을 없앤다. */
+    margin: 0 0 6px;
+    white-space: nowrap;
+}
+/* "이 사이트에서는 이런 걸 확인해요" — 상단 nav 탭(추천 비교/효과 해석/유저 목록)과
+ * 1:1 대응하는 카드 3개(요청 반영). .intro-action과 톤은 맞추되 배경을 줘서 구분한다. */
+.intro-check-card {
+    background: #f8fafc;
+    border-radius: 10px;
+    padding: 14px 14px 16px;
+    min-height: 128px;
+}
+.intro-check-card strong {
+    display: block;
+    color: #0f172a;
+    font-size: 0.92rem;
+    margin-bottom: 6px;
+}
+.intro-check-card p {
+    color: #475569;
+    font-size: 0.82rem;
+    line-height: 1.55;
+    margin: 0;
+}
 .intro-flow-strip {
     display: flex;
     align-items: center;
@@ -1639,6 +1672,59 @@
     color: #475569;
 }
 
+/* ===== 그래프 지표 제목 행 (HR@K 등) — Plotly subplot_titles 대체 =====
+ * Plotly 어노테이션은 마우스오버 이벤트를 못 받아서(요청으로 확인: "여기에 마우스
+ * 올렸을 때 설명 추가해달라는거였음" — 클릭형 팝오버는 원한 게 아니었음) 차트 위에
+ * 이 HTML 행을 대신 그린다. Plotly 기본 subplot 제목과 비슷하게 가운데 정렬 + 진한
+ * 회색으로 맞추고, 점선 밑줄로 "설명이 있다"는 걸 넌지시 알린다.
+ *
+ * 처음엔 title 속성(브라우저 네이티브 툴팁)을 썼는데 "짤려서 보이고, 마우스를
+ * 올렸을 때 바로바로 안떠"라는 피드백(요청 반영) — 네이티브 title은 브라우저가
+ * 강제하는 표시 지연(약 1초)이 있고 잘림도 CSS로 제어가 안 된다. 즉시 뜨는 순수
+ * CSS :hover 툴팁(.metric-title-tooltip)으로 교체했다.
+ */
+.metric-title-row {
+    display: flex;
+    margin-bottom: 4px;
+}
+.metric-title-cell {
+    position: relative;
+    flex: 1 1 0;
+    text-align: center;
+    font-size: 1rem;
+    color: #2a3f5f;
+    text-decoration: underline dotted #94a3b8;
+    text-underline-offset: 3px;
+    cursor: help;
+}
+.metric-title-tooltip {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 50;
+    width: max-content;
+    max-width: 260px;
+    background: #1e293b;
+    color: #f8fafc;
+    font-size: 0.78rem;
+    font-weight: 400;
+    line-height: 1.5;
+    text-align: left;
+    text-decoration: none;
+    padding: 8px 12px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+    pointer-events: none;
+    transition: opacity 0.1s ease;
+}
+.metric-title-cell:hover .metric-title-tooltip {
+    visibility: visible;
+    opacity: 1;
+}
+
 /* ===== 버튼 help 툴팁 (Before/After, 새로고침 시뮬레이션 등) =====
  * Streamlit 기본 툴팁이 흰 배경에 얇은 테두리뿐이라 밋밋/투박해 보인다는 피드백
  * (요청 반영: "못생김") — 어두운 배경 + 흰 글씨 + 둥근 모서리로 흔한 모던 툴팁
@@ -1654,4 +1740,89 @@
     color: #f1f5f9 !important;
     font-size: 0.82rem !important;
     line-height: 1.5 !important;
+}
+
+/* ===== 추천 근거 그래프 — 범례 카드 & 읽는 법 =====
+ * 유니코드 ●/◆ + inline style 조합이 못생겨 보인다는 피드백(요청 반영) — 작은
+ * 원/마름모 스와치를 CSS로 그리고, 카드 톤을 다른 곳(twiddler-case-card 등)과 맞춘다.
+ */
+.graph-legend {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 14px 16px;
+    background: #ffffff;
+}
+.graph-legend-title {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #0f172a;
+    margin-bottom: 10px;
+}
+.graph-legend-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    color: #334155;
+}
+.graph-legend-swatch {
+    flex-shrink: 0;
+    width: 11px;
+    height: 11px;
+}
+.graph-legend-swatch.circle {
+    border-radius: 50%;
+}
+.graph-legend-swatch.diamond {
+    border-radius: 2px;
+    transform: rotate(45deg);
+}
+.graph-legend-divider {
+    border: none;
+    border-top: 1px solid #e2e8f0;
+    margin: 10px 0;
+}
+.graph-legend-note {
+    font-size: 0.78rem;
+    color: #64748b;
+    line-height: 1.6;
+}
+.graph-legend-note .hint {
+    text-decoration: underline dotted;
+    cursor: help;
+}
+
+/* "그래프 읽는 법" — 그래프 아래 4단계 설명 카드(요청 반영: "그래프 해석하는 법도
+ * 밑에 설명으로 적어줘야할거 같아"). */
+.graph-howto {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+    padding: 14px 16px;
+    background: #f8fafc;
+    border-radius: 10px;
+}
+.graph-howto-title {
+    grid-column: 1 / -1;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #0f172a;
+    margin-bottom: 2px;
+}
+.graph-howto-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.graph-howto-row strong {
+    font-size: 0.85rem;
+    color: #4338ca;
+}
+.graph-howto-row span {
+    font-size: 0.82rem;
+    color: #475569;
+    line-height: 1.55;
 }

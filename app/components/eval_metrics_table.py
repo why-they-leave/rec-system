@@ -68,6 +68,34 @@ _DIVERSITY_METRICS = [
     ("categories_cumulative", "누적 카테고리 수(높을수록 다양)"),
 ]
 
+# 그래프 제목(지표명)을 눌렀을 때 뜨는 설명(요청 반영: "각 그래프 제목들(=지표) 누르면
+# 이 지표가 뭔지 설명뜨게"). Plotly subplot_titles 자체는 클릭 이벤트를 못 받아서,
+# 차트 위에 지표명과 같은 라벨의 st.popover 버튼을 따로 얹어 누르면 설명이 뜨게 한다.
+_METRIC_DEFINITIONS: dict[str, str] = {
+    # em-dash/하이픈은 AI가 쓴 것처럼 보인다는 이 파일의 기존 컨벤션(_interpret_headline
+    # 참고)과 같은 이유로 빼고 괄호로(요청 반영: "쓸데없이 들어간 하이픈 지워").
+    "HR@K": (
+        "Hit Rate(적중률). 추천 상위 K개 안에 유저가 실제로 반응(클릭·구매)한 상품이 "
+        "있었는지의 비율입니다. 1에 가까울수록 원하는 상품을 상위권에 잘 보여줬다는 "
+        "뜻입니다."
+    ),
+    "Recall@K": (
+        "유저가 실제로 반응한 상품들 중, 상위 K개 추천 안에 몇 개나 포함됐는지의 " "비율입니다."
+    ),
+    "NDCG@K": (
+        "맞춘 상품이 있었는지뿐 아니라 몇 번째 순위에 있었는지까지 반영한 지표입니다. "
+        "더 위쪽 순위에서 정확히 맞출수록 점수가 높습니다."
+    ),
+    "반복률(중복, 낮을수록 다양)": (
+        "여러 차례 추천(예: 새로고침 시뮬레이션)에서 같은 상품이 반복해서 나오는 "
+        "비율입니다. 낮을수록 매번 다른 상품을 보여준다는 뜻입니다."
+    ),
+    "누적 카테고리 수(높을수록 다양)": (
+        "여러 차례의 추천에 걸쳐 등장한 서로 다른 카테고리 수입니다. 높을수록 다양한 "
+        "카테고리를 접했다는 뜻입니다."
+    ),
+}
+
 
 def _localize(df: pd.DataFrame, context: str, cols: list[str]) -> pd.DataFrame:
     """condition 값을 context별 한국어 라벨로 바꾸고 필요한 컬럼만 남긴다(표 뷰용)."""
@@ -87,7 +115,11 @@ def _grouped_bar_figure(
     """
     labels = _CONDITION_LABELS[context]
     k_order = sorted(df["k"].unique())
-    fig = make_subplots(rows=1, cols=len(metrics), subplot_titles=[title for _, title in metrics])
+    # Plotly의 subplot_titles는 정적 어노테이션이라 마우스 오버 이벤트를 못 받는다
+    # (요청 반영: "여기에 마우스 올렸을 때 설명 추가해달라는거였음") — 제목은 여기서
+    # 안 그리고, 차트 바로 위에 우리가 그리는 HTML 라벨(title 속성, 네이티브 호버
+    # 툴팁)로 대체한다(_render_metric_section 참고). 그만큼 위 여백도 줄인다.
+    fig = make_subplots(rows=1, cols=len(metrics))
 
     for col, (metric_key, _title) in enumerate(metrics, start=1):
         for idx, condition in enumerate(labels):
@@ -112,8 +144,10 @@ def _grouped_bar_figure(
     fig.update_layout(
         barmode="group",
         height=300,
-        margin={"l": 10, "r": 10, "t": 50, "b": 10},
-        legend={"orientation": "h", "yanchor": "bottom", "y": 1.15, "xanchor": "center", "x": 0.5},
+        # subplot_titles를 안 그리게 되면서 위쪽 여백도 그만큼 줄인다(제목 자리 대신
+        # HTML 라벨 행이 차트 바로 위에서 그 역할을 한다).
+        margin={"l": 10, "r": 10, "t": 20, "b": 10},
+        legend={"orientation": "h", "yanchor": "bottom", "y": 1.25, "xanchor": "center", "x": 0.5},
     )
     fig.update_yaxes(rangemode="tozero")
     return fig
@@ -163,8 +197,9 @@ def _interpret_headline(
         verdict = "전반적으로 악화됐습니다."
     else:
         verdict = (
-            "몇 개까지 보여주는지에 따라 효과가 엇갈립니다. "
-            "특정 개수에 맞추면 다른 개수에서는 오히려 나빠질 수 있습니다."
+            "추천 상위 몇 개까지 보여주는지(개수)에 따라 효과가 엇갈립니다. "
+            "특정 개수에 맞춰 순위를 조정하면, 그보다 더 적거나 많이 보여줄 때는 "
+            "오히려 결과가 나빠질 수 있습니다."
         )
 
     return {
@@ -213,6 +248,22 @@ def _render_metric_section(
                 f"</div>",
                 unsafe_allow_html=True,
             )
+    # Plotly의 subplot_titles는 정적 어노테이션이라 마우스 오버 이벤트를 못 받는다
+    # (요청으로 확인: "여기에 마우스 올렸을 때 설명 추가해달라는거였음" — 클릭형
+    # popover는 원하는 게 아니었음). _grouped_bar_figure에서 Plotly 제목은 안 그리고,
+    # 여기서 그 자리를 대신하는 HTML 라벨 행을 그린다.
+    # 처음엔 title 속성(브라우저 네이티브 툴팁)으로 했는데 "짤려서 보이고, 마우스를
+    # 올렸을 때 바로바로 안떠"라는 피드백(요청 반영) — 네이티브 title은 브라우저가
+    # 강제하는 지연(약 1초)과 잘림이 CSS로 해결이 안 돼서, 즉시 뜨는 순수 CSS
+    # :hover 툴팁(.metric-title-tooltip)으로 바꿨다.
+    metric_label_cells = "".join(
+        f'<div class="metric-title-cell">{metric_title}'
+        f'<span class="metric-title-tooltip">'
+        f'{_METRIC_DEFINITIONS.get(metric_title, "설명이 아직 준비되지 않았습니다.")}'
+        f"</span></div>"
+        for _metric_key, metric_title in metrics
+    )
+    st.markdown(f'<div class="metric-title-row">{metric_label_cells}</div>', unsafe_allow_html=True)
     st.plotly_chart(
         _grouped_bar_figure(df, context, metrics),
         width="stretch",

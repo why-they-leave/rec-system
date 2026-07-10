@@ -120,40 +120,71 @@ def _icon_circle_image(icon_slug: str, bg_color: str, product_color: str | None 
     return f"data:image/svg+xml;base64,{b64}"
 
 
-# ── 범례 — 그래프 우측에 고정 배치되는 세로형 박스(요청 반영: 하단 텍스트 한 줄은 눈에
-# 안 띄어서 색상 스와치 + 박스 형태로 변경). render_user_graph()에서 st.columns로 그래프
-# 옆(우측)에 배치한다. 폰트는 이전(0.85rem)보다 키운 1.1rem 유지.
+# ── 범례 — 그래프 우측에 고정 배치되는 세로형 카드. 유니코드 문자(●/◆) + inline style을
+# CSS 클래스 기반 스와치(작은 원/마름모 div)로 바꿔 더 또렷하게 보이게 한다(요청 반영:
+# "범례도 좀 못생겨서 고쳐줬으면 좋겠어" — style.css의 .graph-legend* 참고).
 _LEGEND_ITEMS: list[tuple[str, str, str]] = [
-    # (스와치 문자, 색상, 라벨)
-    ("●", _COLOR_USER, "유저 (중심)"),
-    ("●", _COLOR_PRODUCT_PURCHASED, "구매 상품"),
-    ("●", _COLOR_PRODUCT_VIEWED, "조회/장바구니 상품"),
+    # (스와치 모양, 색상, 라벨)
+    ("circle", _COLOR_USER, "유저 (중심)"),
+    ("circle", _COLOR_PRODUCT_PURCHASED, "구매 상품"),
+    ("circle", _COLOR_PRODUCT_VIEWED, "조회/장바구니 상품"),
     # "인기 상품 (2홉)"은 실제로는 lift 상위 상품(graph_service.py의 HOP2_MAX_PRODUCTS_PER_SEGMENT
     # 주석 참고 — 전체 평균 대비 이 세그먼트에서 유독 도드라지는 상품)인데 "인기"·"홉"이라는
     # 표현이 의미를 못 담아 안 와닿는다는 피드백(요청 반영) — 인과관계가 드러나는 문구로 교체.
-    ("●", _COLOR_PRODUCT_HOP2, "같은 페르소나 유저들이 특히 많이 사는 상품"),
-    ("◆", _COLOR_SEGMENT, "연관 세그먼트"),
-    ("◆", _COLOR_SEGMENT_OWN, "유저 본인 세그먼트"),
+    ("circle", _COLOR_PRODUCT_HOP2, "같은 페르소나 유저들이 특히 많이 사는 상품"),
+    ("diamond", _COLOR_SEGMENT, "연관 세그먼트"),
+    ("diamond", _COLOR_SEGMENT_OWN, "유저 본인 세그먼트"),
 ]
 _LEGEND_ROWS_HTML = "".join(
-    f'<div style="margin-bottom:0.35rem;">'
-    f'<span style="color:{color}; font-size:1.3em; vertical-align:middle;">{swatch}</span> '
-    f'<span style="vertical-align:middle;">{label}</span></div>'
-    for swatch, color, label in _LEGEND_ITEMS
+    f'<div class="graph-legend-row">'
+    f'<span class="graph-legend-swatch {shape}" style="background:{color};"></span>'
+    f"<span>{label}</span></div>"
+    for shape, color, label in _LEGEND_ITEMS
 )
 _LEGEND_HTML = f"""
-<div style="font-size:1.1rem; line-height:1.5; border:1px solid #e2e8f0; border-radius:10px;
-            padding:0.9rem 1rem; background:{_BG_COLOR};">
-  <div style="font-weight:600; margin-bottom:0.5rem;">범례</div>
+<div class="graph-legend">
+  <div class="graph-legend-title">범례</div>
   {_LEGEND_ROWS_HTML}
-  <hr style="margin:0.6rem 0; border-color:#e2e8f0;">
-  <div style="font-size:0.9em; color:#475569; line-height:1.6;">
+  <hr class="graph-legend-divider">
+  <div class="graph-legend-note">
     실선(굵음) = 구매<br>점선 = 조회 등<br>
     세그먼트 엣지 굵기·<span
+      class="hint"
       title="숫자가 클수록 이 세그먼트에서 유독 두드러지게 연관된다는 뜻입니다. 1이면 평균과 같은 수준이고, 1보다 크면 평균보다 더 강하게 연관됩니다."
-      style="text-decoration:underline dotted; cursor:help;"
     >lift 값</span> = 연관 강도(클수록 강함, 마우스를 올리면 자세한 설명이 나옵니다)
   </div>
+</div>
+"""
+
+# ── "그래프 읽는 법" — 그래프 아래에 배치하는 해석 가이드(요청 반영: "그래프 해석하는
+# 법도 추천 근거 그래프 밑에 설명으로 적어줘야할거 같아"). 범례가 "무슨 색이 뭔지"를
+# 알려준다면, 이건 "그래서 이 그래프를 어떻게 읽으면 되는지"를 순서대로 설명한다.
+_HOWTO_STEPS: list[tuple[str, str]] = [
+    (
+        "중심 노드",
+        "가운데 사람 아이콘이 지금 선택한 유저입니다. 나머지 노드는 전부 이 유저를 기준으로 연결됩니다.",
+    ),
+    (
+        "상품 노드",
+        "유저와 연결된 원은 상품입니다. 초록색은 실제로 구매한 상품, 회색은 조회·장바구니에만 담긴 상품입니다.",
+    ),
+    (
+        "세그먼트 노드",
+        "마름모는 페르소나(세그먼트)입니다. 빨간 마름모가 유저 본인이 속한 세그먼트, 주황 마름모는 그 세그먼트와 연관된 다른 세그먼트입니다.",
+    ),
+    (
+        "엣지(선)",
+        "굵은 실선은 구매, 얇은 점선은 조회 등 약한 상호작용입니다. 세그먼트로 이어지는 선의 굵기와 lift 숫자는 그 상품이 이 세그먼트에서 얼마나 두드러지는지를 나타냅니다.",
+    ),
+]
+_HOWTO_ROWS_HTML = "".join(
+    f'<div class="graph-howto-row"><strong>{title}</strong><span>{desc}</span></div>'
+    for title, desc in _HOWTO_STEPS
+)
+_HOWTO_HTML = f"""
+<div class="graph-howto">
+  <div class="graph-howto-title">그래프 읽는 법</div>
+  {_HOWTO_ROWS_HTML}
 </div>
 """
 
@@ -214,7 +245,10 @@ def _build_network(graph: dict, products_df: pd.DataFrame) -> Network:
             # 아이콘(PNG 있으면 그걸로, 없으면 이모지 폴백)은 색상 원과 함께 미리 구운 SVG
             # 이미지(circularImage)로 노드 "안에" 표시하고, 상품명은 hover 시 title 툴팁으로만
             # 보여준다(상시 라벨 제거 — 위 _HIDDEN_LABEL 참고).
-            title = f"{name}<br>{category}" + (f"<br>$ {price:.2f}" if price is not None else "")
+            # vis-network의 노드 title(hover 툴팁)은 문자열을 innerText로 그대로 넣는다
+            # (HTML을 해석하지 않음) — "<br>"를 쓰면 태그가 텍스트 그대로 노출된다(요청으로
+            # 발견). innerText setter는 "\n"을 줄바꿈으로 변환하므로 실제 개행 문자를 쓴다.
+            title = f"{name}\n{category}" + (f"\n$ {price:.2f}" if price is not None else "")
             if icon_slug:
                 image = _icon_circle_image(icon_slug, color, extract_color(name))
             else:
@@ -381,5 +415,10 @@ def render_user_graph(user_id: int) -> None:
     graph_col, legend_col = st.columns([5, 1.3])
     with graph_col:
         st.iframe(html, height=_IFRAME_HEIGHT_PX)
+        # 범례는 "무슨 색이 뭔지"만 알려줘서, 그래프를 처음 보는 사람은 "그래서 어떻게
+        # 읽으라는 건지"를 여전히 모른다는 피드백(요청 반영) — 그래프 아래에 순서대로
+        # 읽는 법을 설명한다. graph_col 안에 넣어 그래프와 가로 폭을 맞춘다(요청 반영 —
+        # 이전엔 전체 폭이라 그래프보다 넓었음).
+        st.markdown(_HOWTO_HTML, unsafe_allow_html=True)
     with legend_col:
         st.markdown(_LEGEND_HTML, unsafe_allow_html=True)

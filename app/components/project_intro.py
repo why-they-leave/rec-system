@@ -30,6 +30,26 @@ _WATCH_ITEMS = [
     ("해석 가능성", "페르소나와 그래프가 추천 결과를 설명하는지"),
 ]
 
+# 상단 네비게이션 탭(추천 비교/효과 해석/유저 목록)과 1:1로 대응 — 실제로 존재하는
+# 화면만 나열해 "확인할 수 있다"고 써놓고 실제로는 없는 기능을 약속하지 않는다.
+_SITE_CHECKS = [
+    (
+        "추천 비교",
+        "선택한 유저에게 Twiddler 재랭킹 전/후 추천 순위가 어떻게 바뀌는지, 반복 "
+        "방문 시 같은 상품이 계속 나오지 않는지 직접 눌러보며 확인합니다.",
+    ),
+    (
+        "효과 해석",
+        "페르소나 정보를 뺀 bi-graph와 넣은 tri-graph의 HR@K·NDCG@K를 비교해, "
+        "페르소나가 실제로 추천 정확도에 도움이 되는지 수치로 확인합니다.",
+    ),
+    (
+        "유저 목록",
+        "페르소나별로 유저를 탐색하며, 활동량(Heavy/Cold)과 구매 성향이 어떻게 "
+        "다른 추천으로 이어지는지 확인합니다.",
+    ),
+]
+
 
 def _render_preview_products() -> str:
     items = []
@@ -57,6 +77,34 @@ def render_project_intro() -> None:
     st.caption(
         "추천 결과를 직접 체험하며 재랭킹, 보완재 추천, 페르소나 해석을 확인하는 데모사이트입니다."
     )
+
+    # "우리는 이런 걸 하고자 했어요"를 페이지 맨 위(체험 프리뷰보다 먼저)로 올린다
+    # (요청 반영: "이걸 제일 상단으로 올려") — 데모를 체험하기 전에 왜 만들었는지부터
+    # 읽게 한다.
+    st.markdown(
+        '<div class="intro-section-label">우리는 이런 걸 하고자 했어요</div>',
+        unsafe_allow_html=True,
+    )
+    # 원래 한 문단에 이어붙여져 있어 두 문장이 구분 없이 붙어 보였다(요청 반영: 이
+    # 문장을 첫 문장 "아래"로) — 별도 <p>로 나눠 줄바꿈된 두 번째 문장으로 배치한다.
+    st.markdown(
+        dedent(
+            """
+            <p class="intro-goal-text">
+                탐색 비용(원하는 상품을 찾기까지 드는 시간과 시행착오)을 줄이는 것이
+                목표였습니다.
+            </p>
+            <p class="intro-goal-text">
+                ALS·LightGCN으로 만든 추천 후보를 페르소나 정보로 재정렬(Twiddler)했을
+                때, 추천이 실제로 더 잘 맞고 다양해지는지를 수치와 화면으로 직접
+                검증하고자 했습니다.
+            </p>
+            """
+        ).strip(),
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("<hr class='intro-divider'>", unsafe_allow_html=True)
 
     st.markdown(
         dedent(
@@ -128,6 +176,27 @@ def render_project_intro() -> None:
         ).strip(),
         unsafe_allow_html=True,
     )
+
+    st.markdown("<hr class='intro-divider'>", unsafe_allow_html=True)
+
+    st.markdown(
+        '<div class="intro-section-label">이 사이트에서는 이런 걸 확인해요</div>',
+        unsafe_allow_html=True,
+    )
+    check_cols = st.columns(3)
+    for col, (title, desc) in zip(check_cols, _SITE_CHECKS):
+        with col:
+            st.markdown(
+                dedent(
+                    f"""
+                <div class="intro-check-card">
+                    <strong>{title}</strong>
+                    <p>{desc}</p>
+                </div>
+                """
+                ).strip(),
+                unsafe_allow_html=True,
+            )
 
     st.markdown("<hr class='intro-divider'>", unsafe_allow_html=True)
 
