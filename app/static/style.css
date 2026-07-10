@@ -1486,11 +1486,23 @@
  * 분리했다"는 결론으로 명확히 나눈다. */
 .intro-final-note {
     /* height:100%는 부모가 콘텐츠 높이를 따라가는 구조라 두 박스 내용 길이가 다르면
-     * 높이가 안 맞았다(요청 반영: "박스 크기 맞춰") — 고정 min-height로 맞춘다. */
+     * 높이가 안 맞았다(요청 반영: "박스 크기 맞춰") — 고정 min-height로 맞춘다.
+     * 박스 전체를 세로 중앙 정렬했더니 제목(span/strong)까지 같이 내려가 버렸다
+     * (요청 반영: "이거는 원래 위치에 있어야지") — 제목은 위에 고정하고, 본문
+     * (.intro-final-body)만 남는 공간에서 세로 중앙 정렬한다.
+     */
+    display: flex;
+    flex-direction: column;
     background: #f8fafc;
     border-radius: 8px;
     padding: 14px 16px;
     min-height: 216px;
+}
+.intro-final-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 .intro-final-note p {
     margin-top: 8px;

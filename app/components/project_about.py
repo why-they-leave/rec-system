@@ -162,19 +162,21 @@ def render_project_about() -> None:
             <div class="intro-final-note">
                 <span>모델 실험</span>
                 <strong>bi-graph vs. tri-graph 성능 비교</strong>
-                <p>
-                    페르소나 노드를 포함하지 않은 bi-graph와 페르소나 노드를 추가한
-                    tri-graph의 HR@K와 NDCG@K를 비교했습니다.
-                </p>
-                <p>
-                    일부 설정에서는 tri-graph의 성능이 개선됐지만, 하이퍼파라미터에
-                    따른 변동성이 커 일관된 개선이라고 판단하기 어려웠습니다.
-                </p>
-                <p>
-                    따라서 최종 데모에서는 페르소나를 후보 생성 모델에 직접
-                    결합하기보다, 안정적으로 생성된 후보를 후처리 단계에서
-                    재정렬하는 방식을 사용했습니다.
-                </p>
+                <div class="intro-final-body">
+                    <p>
+                        페르소나 노드를 포함하지 않은 bi-graph와 페르소나 노드를 추가한
+                        tri-graph의 HR@K와 NDCG@K를 비교했습니다.
+                    </p>
+                    <p>
+                        일부 설정에서는 tri-graph의 성능이 개선됐지만, 하이퍼파라미터에
+                        따른 변동성이 커 일관된 개선이라고 판단하기 어려웠습니다.
+                    </p>
+                    <p>
+                        따라서 최종 데모에서는 페르소나를 후보 생성 모델에 직접
+                        결합하기보다, 안정적으로 생성된 후보를 후처리 단계에서
+                        재정렬하는 방식을 사용했습니다.
+                    </p>
+                </div>
             </div>
             """
             ).strip(),
@@ -187,11 +189,13 @@ def render_project_about() -> None:
             <div class="intro-final-note">
                 <span>최종 설계</span>
                 <strong>안정적인 후보 생성 + 설명 가능한 후처리 재랭킹</strong>
-                <ol class="intro-final-list">
-                    <li>ALS와 LightGCN으로 추천 후보를 생성합니다.</li>
-                    <li>Twiddler로 페르소나와 노출 이력을 반영합니다.</li>
-                    <li>추천 순위가 변경된 이유를 화면에 함께 제공합니다.</li>
-                </ol>
+                <div class="intro-final-body">
+                    <ol class="intro-final-list">
+                        <li>ALS와 LightGCN으로 추천 후보를 생성합니다.</li>
+                        <li>Twiddler로 페르소나와 노출 이력을 반영합니다.</li>
+                        <li>추천 순위가 변경된 이유를 화면에 함께 제공합니다.</li>
+                    </ol>
+                </div>
             </div>
             """
             ).strip(),
