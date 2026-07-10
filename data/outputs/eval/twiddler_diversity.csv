@@ -1,0 +1,127 @@
+context,condition,k,segment,repetition_rate,unique_item_ratio,categories_first,categories_cumulative,n_users
+main,baseline,5,ALL,1.0,0.2,2.21,2.21,1463
+main,baseline,5,High-Engagement Occasional Purchasers,1.0,0.2,2.02,2.02,144
+main,baseline,5,Frequent Browsers with Occasional Purchases,1.0,0.2,2.32,2.32,431
+main,baseline,5,Frequent Viewers with Consistent Purchases,1.0,0.2,1.94,1.94,303
+main,baseline,5,Non-Purchasing Browsers,1.0,0.2,2.23,2.23,219
+main,baseline,5,High-Engagement Repeat Purchasers,1.0,0.2,2.39,2.39,295
+main,baseline,5,Low-Engagement Non-Purchasers,1.0,0.2,2.31,2.31,71
+main,twiddler,5,ALL,0.4086,0.5367,1.83,3.13,1463
+main,twiddler,5,High-Engagement Occasional Purchasers,0.4625,0.5061,1.45,2.44,144
+main,twiddler,5,Frequent Browsers with Occasional Purchases,0.3771,0.5571,1.94,3.47,431
+main,twiddler,5,Frequent Viewers with Consistent Purchases,0.5568,0.4382,1.2,1.65,303
+main,twiddler,5,Non-Purchasing Browsers,0.3155,0.5991,2.23,3.89,219
+main,twiddler,5,High-Engagement Repeat Purchasers,0.3654,0.5634,2.08,3.69,295
+main,twiddler,5,Low-Engagement Non-Purchasers,0.3246,0.5927,2.31,4.03,71
+main,baseline,10,ALL,1.0,0.2,3.13,3.13,1463
+main,baseline,10,High-Engagement Occasional Purchasers,1.0,0.2,2.79,2.79,144
+main,baseline,10,Frequent Browsers with Occasional Purchases,1.0,0.2,3.29,3.29,431
+main,baseline,10,Frequent Viewers with Consistent Purchases,1.0,0.2,2.71,2.71,303
+main,baseline,10,Non-Purchasing Browsers,1.0,0.2,3.15,3.15,219
+main,baseline,10,High-Engagement Repeat Purchasers,1.0,0.2,3.38,3.38,295
+main,baseline,10,Low-Engagement Non-Purchasers,1.0,0.2,3.41,3.41,71
+main,twiddler,10,ALL,0.4554,0.5172,2.43,4.0,1463
+main,twiddler,10,High-Engagement Occasional Purchasers,0.5217,0.4749,1.85,3.01,144
+main,twiddler,10,Frequent Browsers with Occasional Purchases,0.4172,0.5371,2.59,4.48,431
+main,twiddler,10,Frequent Viewers with Consistent Purchases,0.6309,0.4015,1.38,2.1,303
+main,twiddler,10,Non-Purchasing Browsers,0.3443,0.5966,3.15,5.05,219
+main,twiddler,10,High-Engagement Repeat Purchasers,0.4051,0.5525,2.78,4.73,295
+main,twiddler,10,Low-Engagement Non-Purchasers,0.3556,0.5848,3.41,4.87,71
+main,baseline,20,ALL,1.0,0.2,4.28,4.28,1463
+main,baseline,20,High-Engagement Occasional Purchasers,1.0,0.2,3.87,3.87,144
+main,baseline,20,Frequent Browsers with Occasional Purchases,1.0,0.2,4.41,4.41,431
+main,baseline,20,Frequent Viewers with Consistent Purchases,1.0,0.2,3.96,3.96,303
+main,baseline,20,Non-Purchasing Browsers,1.0,0.2,4.43,4.43,219
+main,baseline,20,High-Engagement Repeat Purchasers,1.0,0.2,4.51,4.51,295
+main,baseline,20,Low-Engagement Non-Purchasers,1.0,0.2,4.41,4.41,71
+main,twiddler,20,ALL,0.5079,0.4891,3.27,4.93,1463
+main,twiddler,20,High-Engagement Occasional Purchasers,0.5884,0.4389,2.42,3.81,144
+main,twiddler,20,Frequent Browsers with Occasional Purchases,0.4661,0.5104,3.53,5.49,431
+main,twiddler,20,Frequent Viewers with Consistent Purchases,0.7014,0.3636,1.69,2.97,303
+main,twiddler,20,Non-Purchasing Browsers,0.387,0.5778,4.43,6.02,219
+main,twiddler,20,High-Engagement Repeat Purchasers,0.4463,0.5308,3.8,5.67,295
+main,twiddler,20,Low-Engagement Non-Purchasers,0.4018,0.5499,4.41,5.75,71
+detail,baseline,1,ALL,1.0,0.2,1.0,1.0,104325
+detail,baseline,1,High-Engagement Repeat Purchasers,1.0,0.2,1.0,1.0,31202
+detail,baseline,1,Non-Purchasing Browsers,1.0,0.2,1.0,1.0,12541
+detail,baseline,1,Frequent Browsers with Occasional Purchases,1.0,0.2,1.0,1.0,32164
+detail,baseline,1,High-Engagement Occasional Purchasers,1.0,0.2,1.0,1.0,5893
+detail,baseline,1,Frequent Viewers with Consistent Purchases,1.0,0.2,1.0,1.0,20462
+detail,baseline,1,Low-Engagement Non-Purchasers,1.0,0.2,1.0,1.0,2063
+detail,twiddler,1,ALL,0.3421,0.6599,1.0,2.42,104325
+detail,twiddler,1,High-Engagement Repeat Purchasers,0.3167,0.684,1.0,2.51,31202
+detail,twiddler,1,Non-Purchasing Browsers,0.2715,0.7291,1.0,2.7,12541
+detail,twiddler,1,Frequent Browsers with Occasional Purchases,0.316,0.6751,1.0,2.46,32164
+detail,twiddler,1,High-Engagement Occasional Purchasers,0.3794,0.6267,1.0,2.32,5893
+detail,twiddler,1,Frequent Viewers with Consistent Purchases,0.4598,0.561,1.0,2.06,20462
+detail,twiddler,1,Low-Engagement Non-Purchasers,0.29,0.7143,1.0,2.67,2063
+detail,baseline,3,ALL,1.0,0.2,2.4,2.4,104325
+detail,baseline,3,High-Engagement Repeat Purchasers,1.0,0.2,2.4,2.4,31202
+detail,baseline,3,Non-Purchasing Browsers,1.0,0.2,2.4,2.4,12541
+detail,baseline,3,Frequent Browsers with Occasional Purchases,1.0,0.2,2.4,2.4,32164
+detail,baseline,3,High-Engagement Occasional Purchasers,1.0,0.2,2.4,2.4,5893
+detail,baseline,3,Frequent Viewers with Consistent Purchases,1.0,0.2,2.4,2.4,20462
+detail,baseline,3,Low-Engagement Non-Purchasers,1.0,0.2,2.41,2.41,2063
+detail,twiddler,3,ALL,0.6342,0.3316,2.33,3.26,104325
+detail,twiddler,3,High-Engagement Repeat Purchasers,0.6212,0.3327,2.34,3.27,31202
+detail,twiddler,3,Non-Purchasing Browsers,0.6022,0.3332,2.4,3.28,12541
+detail,twiddler,3,Frequent Browsers with Occasional Purchases,0.6276,0.333,2.31,3.27,32164
+detail,twiddler,3,High-Engagement Occasional Purchasers,0.6509,0.3301,2.33,3.25,5893
+detail,twiddler,3,Frequent Viewers with Consistent Purchases,0.6815,0.3272,2.32,3.22,20462
+detail,twiddler,3,Low-Engagement Non-Purchasers,0.6107,0.3328,2.41,3.29,2063
+detail,baseline,5,ALL,1.0,0.2,3.28,3.28,104325
+detail,baseline,5,High-Engagement Repeat Purchasers,1.0,0.2,3.28,3.28,31202
+detail,baseline,5,Non-Purchasing Browsers,1.0,0.2,3.29,3.29,12541
+detail,baseline,5,Frequent Browsers with Occasional Purchases,1.0,0.2,3.27,3.27,32164
+detail,baseline,5,High-Engagement Occasional Purchasers,1.0,0.2,3.28,3.28,5893
+detail,baseline,5,Frequent Viewers with Consistent Purchases,1.0,0.2,3.28,3.28,20462
+detail,baseline,5,Low-Engagement Non-Purchasers,1.0,0.2,3.29,3.29,2063
+detail,twiddler,5,ALL,1.0,0.2,3.28,3.28,104325
+detail,twiddler,5,High-Engagement Repeat Purchasers,1.0,0.2,3.28,3.28,31202
+detail,twiddler,5,Non-Purchasing Browsers,1.0,0.2,3.29,3.29,12541
+detail,twiddler,5,Frequent Browsers with Occasional Purchases,1.0,0.2,3.27,3.27,32164
+detail,twiddler,5,High-Engagement Occasional Purchasers,1.0,0.2,3.28,3.28,5893
+detail,twiddler,5,Frequent Viewers with Consistent Purchases,1.0,0.2,3.28,3.28,20462
+detail,twiddler,5,Low-Engagement Non-Purchasers,1.0,0.2,3.29,3.29,2063
+main_lightgcn_bipartite,baseline,5,ALL,1.0,0.2,2.99,2.99,1465
+main_lightgcn_bipartite,baseline,5,High-Engagement Occasional Purchasers,1.0,0.2,2.99,2.99,144
+main_lightgcn_bipartite,baseline,5,Frequent Browsers with Occasional Purchases,1.0,0.2,3.03,3.03,431
+main_lightgcn_bipartite,baseline,5,Frequent Viewers with Consistent Purchases,1.0,0.2,2.94,2.94,303
+main_lightgcn_bipartite,baseline,5,Non-Purchasing Browsers,1.0,0.2,2.88,2.88,219
+main_lightgcn_bipartite,baseline,5,High-Engagement Repeat Purchasers,1.0,0.2,3.1,3.1,295
+main_lightgcn_bipartite,baseline,5,Low-Engagement Non-Purchasers,1.0,0.2,2.85,2.85,73
+main_lightgcn_bipartite,twiddler,5,ALL,0.4267,0.5287,2.39,4.3,1465
+main_lightgcn_bipartite,twiddler,5,High-Engagement Occasional Purchasers,0.5257,0.4631,2.0,3.67,144
+main_lightgcn_bipartite,twiddler,5,Frequent Browsers with Occasional Purchases,0.3731,0.561,2.44,4.68,431
+main_lightgcn_bipartite,twiddler,5,Frequent Viewers with Consistent Purchases,0.6413,0.404,1.78,3.12,303
+main_lightgcn_bipartite,twiddler,5,Non-Purchasing Browsers,0.2925,0.6,2.88,4.65,219
+main_lightgcn_bipartite,twiddler,5,High-Engagement Repeat Purchasers,0.3622,0.5711,2.66,4.89,295
+main_lightgcn_bipartite,twiddler,5,Low-Engagement Non-Purchasers,0.3212,0.5995,2.85,4.67,73
+main_lightgcn_bipartite,baseline,10,ALL,1.0,0.2,4.22,4.22,1465
+main_lightgcn_bipartite,baseline,10,High-Engagement Occasional Purchasers,1.0,0.2,4.18,4.18,144
+main_lightgcn_bipartite,baseline,10,Frequent Browsers with Occasional Purchases,1.0,0.2,4.29,4.29,431
+main_lightgcn_bipartite,baseline,10,Frequent Viewers with Consistent Purchases,1.0,0.2,4.17,4.17,303
+main_lightgcn_bipartite,baseline,10,Non-Purchasing Browsers,1.0,0.2,4.01,4.01,219
+main_lightgcn_bipartite,baseline,10,High-Engagement Repeat Purchasers,1.0,0.2,4.42,4.42,295
+main_lightgcn_bipartite,baseline,10,Low-Engagement Non-Purchasers,1.0,0.2,3.93,3.93,73
+main_lightgcn_bipartite,twiddler,10,ALL,0.4618,0.5149,3.25,5.3,1465
+main_lightgcn_bipartite,twiddler,10,High-Engagement Occasional Purchasers,0.5688,0.4435,2.69,4.56,144
+main_lightgcn_bipartite,twiddler,10,Frequent Browsers with Occasional Purchases,0.4013,0.5467,3.27,5.78,431
+main_lightgcn_bipartite,twiddler,10,Frequent Viewers with Consistent Purchases,0.6899,0.3764,2.27,3.92,303
+main_lightgcn_bipartite,twiddler,10,Non-Purchasing Browsers,0.3259,0.5995,4.01,5.8,219
+main_lightgcn_bipartite,twiddler,10,High-Engagement Repeat Purchasers,0.3906,0.5627,3.75,5.88,295
+main_lightgcn_bipartite,twiddler,10,Low-Engagement Non-Purchasers,0.3555,0.5962,3.93,5.74,73
+main_lightgcn_bipartite,baseline,20,ALL,1.0,0.2,5.4,5.4,1465
+main_lightgcn_bipartite,baseline,20,High-Engagement Occasional Purchasers,1.0,0.2,5.44,5.44,144
+main_lightgcn_bipartite,baseline,20,Frequent Browsers with Occasional Purchases,1.0,0.2,5.51,5.51,431
+main_lightgcn_bipartite,baseline,20,Frequent Viewers with Consistent Purchases,1.0,0.2,5.35,5.35,303
+main_lightgcn_bipartite,baseline,20,Non-Purchasing Browsers,1.0,0.2,5.14,5.14,219
+main_lightgcn_bipartite,baseline,20,High-Engagement Repeat Purchasers,1.0,0.2,5.57,5.57,295
+main_lightgcn_bipartite,baseline,20,Low-Engagement Non-Purchasers,1.0,0.2,5.05,5.05,73
+main_lightgcn_bipartite,twiddler,20,ALL,0.4964,0.4979,4.32,6.1,1465
+main_lightgcn_bipartite,twiddler,20,High-Engagement Occasional Purchasers,0.5974,0.4269,3.67,5.44,144
+main_lightgcn_bipartite,twiddler,20,Frequent Browsers with Occasional Purchases,0.4383,0.5229,4.49,6.49,431
+main_lightgcn_bipartite,twiddler,20,Frequent Viewers with Consistent Purchases,0.7188,0.3605,3.03,5.0,303
+main_lightgcn_bipartite,twiddler,20,Non-Purchasing Browsers,0.3618,0.594,5.14,6.54,219
+main_lightgcn_bipartite,twiddler,20,High-Engagement Repeat Purchasers,0.4255,0.5477,4.93,6.55,295
+main_lightgcn_bipartite,twiddler,20,Low-Engagement Non-Purchasers,0.4074,0.5703,5.05,6.49,73

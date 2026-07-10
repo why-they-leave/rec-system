@@ -1,0 +1,7 @@
+condition,k,HR,Recall,NDCG,eval_users
+bipartite,5,0.0068,0.0029,0.0021,1465
+bipartite,10,0.0225,0.0091,0.0047,1465
+bipartite,20,0.0485,0.0225,0.0087,1465
+tripartite,5,0.013,0.0058,0.0048,1465
+tripartite,10,0.0191,0.0097,0.0062,1465
+tripartite,20,0.0485,0.0256,0.0108,1465

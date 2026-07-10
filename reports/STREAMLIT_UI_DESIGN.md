@@ -3,6 +3,12 @@
 > **목적:** 이 문서는 Streamlit 기반의 추천 시스템 데모 UI를 처음 구현하는 개발자(또는 LLM)가
 > 전체 구조와 설계 의도를 파악하고 바로 구현에 착수할 수 있도록 작성된 설계 명세서입니다.
 
+> **⚠️ 결정 사항 업데이트(2026-07-08)** — 아래 두 항목은 이 문서가 원래 계획했던 것과 달리 **의도적으로 제외**하기로 결정됨. 문서 곳곳에 남아있는 관련 서술은 원래 설계 의도를 보여주는 기록으로 남겨두고, 각 위치에 별도 표시를 추가함:
+> - **Bump Chart(`components/metric_chart.py`, `pages/2_twiddler_compare.py`)**: 만들지 않기로 결정. Twiddler 전/후 순위 변화는 실제 구현에서 각 상품 카드 우상단의 ▲/▼ 배지(`app/utils/rank_delta.py::get_rank_delta`)로만 표시.
+> - **콘텐츠 기반(대체재) 추천(`rec_type='content'`)**: 완전히 제거하기로 결정. 상세 화면엔 보완재(Item-based CF)만 남음 — `backend/api/schemas.py`/`recommend_detail.py`에서 `rec_type` 파라미터 자체를 삭제함(`reports/BACKEND_INTEGRATION_PLAN.md` 참고).
+>
+> 이 외에도 실제 구현은 `pages/` 멀티페이지 대신 `app/main.py` 단일 파일 + `st.session_state` 뷰 라우팅을 쓰는 등 이 문서 작성 이후 구조가 여러 곳에서 달라졌으나, 이번 업데이트는 위 두 결정 사항에 한정함.
+
 ---
 
 ## 1. 프로젝트 개요
@@ -34,15 +40,15 @@ rec-system/
 ├── app/                              # UI 관련 코드 전체
 │   ├── main.py                       # 진입점 · 사이드바 · session_state 설정
 │   │
-│   ├── pages/
+│   ├── pages/                        # (미사용 — 실제로는 app/main.py 단일 파일 + session_state 라우팅)
 │   │   ├── 1_main_recommend.py       # ALS vs LightGCN 상품 카드 비교
-│   │   ├── 2_twiddler_compare.py     # Twiddler 전/후 Bump Chart
-│   │   └── 3_detail_recommend.py     # 대체재 · 보완재 연관 상품 추천
+│   │   ├── 2_twiddler_compare.py     # Twiddler 전/후 Bump Chart (제거 결정 — 아래 §5.3 참고)
+│   │   └── 3_detail_recommend.py     # 보완재 연관 상품 추천 (대체재는 제거 결정 — 아래 §5.4 참고)
 │   │
 │   ├── components/
 │   │   ├── user_selector.py          # 유저 드롭다운 · 페르소나 정보 카드
 │   │   ├── product_card.py           # 상품 카드 렌더링 · 색상 원형 아이콘 · 배지
-│   │   └── metric_chart.py           # Plotly Bump Chart · 순위 변화 시각화
+│   │   └── metric_chart.py           # (제거 결정 — 아래 §6.3 참고) Plotly Bump Chart · 순위 변화 시각화
 │   │
 │   ├── static/
 │   │   ├── style.css                 # 공통 스타일 · 카드 레이아웃 · CSS 변수
@@ -89,7 +95,7 @@ item_id        | 기준 상품 식별자
 rec_item_id    | 추천 상품 식별자
 score          | 유사도 점수
 rank           | 추천 순위
-rec_type       | 'content' (대체재) 또는 'cf' (보완재)
+rec_type       | (제거 결정) 'content' (대체재) 또는 'cf' (보완재) — 실제로는 rec_type 컬럼/파라미터 자체를 삭제하고 보완재(cf)만 제공
 ```
 
 **`persona_labels.csv`**
@@ -132,7 +138,7 @@ CREATE TABLE pred_detail_recommend (
     rec_item_id  INTEGER,
     score        REAL,
     rank         INTEGER,
-    rec_type     TEXT    -- 'content' | 'cf'
+    rec_type     TEXT    -- (제거 결정) 'content' | 'cf' — 실제로는 컬럼 자체 없이 보완재만 제공
 );
 
 CREATE TABLE persona_labels (
@@ -319,6 +325,8 @@ def render_product_card(item: pd.Series, rank: int, badge: str = None):
 
 ### 5.3 `pages/2_twiddler_compare.py` — Twiddler 전/후 비교
 
+> **[제거 결정]** 아래 Bump Chart는 만들지 않기로 함. 실제로는 프로덕션 메인 화면(`app/main.py::_render_main_recommend`)이 Heavy 유저에게 Twiddler 적용 후 결과를 단일 뷰로 보여주면서, 카드 우상단에 적용 전 대비 순위 변동(▲/▼ + 변동폭)을 배지로만 표시한다(`get_rank_delta`). Before/After를 나란히 비교하는 화면 자체는 `SHOW_TWIDDLER_DEMO` 환경변수를 켰을 때만 나타나는 내부 검증용 화면(`_render_twiddler_demo`)으로 남아있고, 거기서도 Bump Chart 없이 동일한 배지 방식을 재사용한다.
+
 **목적:** 페르소나 후처리(Twiddler) 적용 전/후 추천 순위 변화를 시각화
 
 **레이아웃:**
@@ -354,6 +362,8 @@ def render_product_card(item: pd.Series, rank: int, badge: str = None):
 
 ### 5.4 `pages/3_detail_recommend.py` — 상세 페이지 연관 상품
 
+> **[제거 결정]** 대체재(콘텐츠 기반) 추천은 만들지 않기로 함 — 상세 화면엔 보완재(Item-based CF)만 단일 컬럼으로 표시(`app/main.py::_render_detail_recommend`). `rec_type` 파라미터/스키마 필드 자체를 백엔드에서 삭제했다(`reports/BACKEND_INTEGRATION_PLAN.md` 참고).
+
 **목적:** 특정 상품을 선택했을 때 대체재(콘텐츠 기반) + 보완재(Item-based CF) 표시
 
 **레이아웃:**
@@ -377,8 +387,8 @@ def render_product_card(item: pd.Series, rank: int, badge: str = None):
 **구현 포인트:**
 - 상품 선택 드롭다운: `products.csv` 전체 목록 (`카테고리 > 상품명` 형식 권장)
 - 현재 상품은 가로형 카드로 상단에 크게 표시
-- 대체재 / 보완재를 `st.columns(2)`로 분리, 각 내부는 `st.columns(4)`로 카드 배치
-- `rec_type` 컬럼 필터링: `df[df['rec_type'] == 'content']` / `df[df['rec_type'] == 'cf']`
+- ~~대체재 / 보완재를 `st.columns(2)`로 분리~~ → (제거 결정) 보완재만 `st.columns(4)`로 카드 배치
+- ~~`rec_type` 컬럼 필터링~~ → (제거 결정) `rec_type` 컬럼/파라미터 자체가 없음, 보완재 조회 함수 하나만 호출
 
 ---
 
@@ -410,7 +420,7 @@ def render_product_card(item: pd.Series, rank: int, badge: str = None):
     """
 ```
 
-### 6.3 `components/metric_chart.py`
+### 6.3 `components/metric_chart.py` — (제거 결정, 만들지 않음)
 ```python
 def render_bump_chart(before_df: pd.DataFrame, after_df: pd.DataFrame) -> go.Figure:
     """
@@ -419,6 +429,7 @@ def render_bump_chart(before_df: pd.DataFrame, after_df: pd.DataFrame) -> go.Fig
     - 반환값: Plotly Figure (st.plotly_chart로 표시)
     """
 ```
+실제로는 이 컴포넌트를 만들지 않고, `components/product_card.py::render_product_card`의 `rank_delta`/`plain_rank_badge` 인자로 카드별 순위 변동을 배지 하나로 대체했다(`app/utils/rank_delta.py::get_rank_delta` 참고).
 
 ---
 
@@ -502,7 +513,7 @@ streamlit run app/main.py
          ↓
 6단계: pages/1_main_recommend.py   ALS vs LightGCN 카드 비교 구현
          ↓
-7단계: pages/2_twiddler_compare.py Bump Chart · 순위 변화 카드 구현
+7단계: pages/2_twiddler_compare.py (제거 결정) Bump Chart 대신 카드 배지로 순위 변화 표시
          ↓
 8단계: pages/3_detail_recommend.py 연관 상품 추천 구현
          ↓
@@ -517,6 +528,5 @@ streamlit run app/main.py
 - **`@st.cache_data` 필수:** CSV/DB 로드는 반드시 캐싱하여 유저 변경 시 불필요한 재로드 방지
 - **CSS 색상명 직접 활용:** 상품명의 색상 단어(`MediumBlue`, `DarkOrchid` 등)는 CSS Named Color와 동일하므로 별도 매핑 테이블 없이 바로 `background-color` 값으로 사용 가능
 - **아이콘 이미지 fallback:** `<img onerror="this.style.display='none'">` 처리로 이미지 없을 때 원형 색상만 표시되도록 방어
-- **Bump Chart y축 반전 필수:** 순위이므로 1등이 위에 위치하도록 `autorange='reversed'` 설정
-- **Plotly 사용 권장:** Streamlit 네이티브 차트보다 Plotly가 Bump Chart 등 커스텀 시각화에 유리
+- ~~**Bump Chart y축 반전 필수**~~ / ~~**Plotly 사용 권장**~~ → (제거 결정) Bump Chart를 만들지 않기로 해 두 항목 모두 해당 없음. 순위 변화는 카드 배지(▲/▼)로만 표시
 - **SQLite 전환:** `data_loader.py`의 `DATA_SOURCE` 상수만 변경하면 나머지 코드 수정 불필요

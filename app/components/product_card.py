@@ -1,377 +1,19 @@
 """
 상품 카드 컴포넌트.
-아이콘: 상품 타입별 이모지 + st.container(border=True) 네이티브 렌더링.
-HTML/SVG를 사용하지 않아 st.markdown 파싱 문제 없음.
+아이콘: 상품 타입별 라인아트 PNG(app/static/images/products/, 41종)를 상품 색상(CSS filter:
+hue-rotate)으로 물들여 표시 — 원형 배지 없이 아이콘 자체가 상품명의 색상을 반영한다.
+이미지가 없는 타입(신규 상품 등)은 이모지(🏷️)로 폴백한다.
+HTML은 <img> 한 줄뿐이라 st.markdown 파싱 문제 없음.
 """
+
+from collections.abc import Callable
+
 import pandas as pd
 import streamlit as st
+from utils.category_emoji import extract_color
+from utils.product_icons import icon_color_filter, icon_slug_for, icon_url
 
-# ── [DEAD CODE 시작 — 삭제 예정, 현재 미사용] ─────────────────────────────────
-_ICON_PATHS_UNUSED: dict[str, str] = {
-    # ── Electronics ─────────────────────────────────────────────────────────
-    "ssd": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M21.75 17.25v.75a3 3 0 01-3 3H5.25a3 3 0 01-3-3v-.75'
-        "m16.5 0a3 3 0 003-3V5.25A3 3 0 0018.75 3H5.25A3 3 0 003 5.25v9a3 3 0 003 3"
-        "m13.5 0h-13.5M8.25 13.5h.008v.008H8.25V13.5zm3.75 0h.008v.008H12V13.5"
-        'zm3.75 0h.008v.008H15.75V13.5z"/>'
-    ),
-    "keyboard": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621'
-        "A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25"
-        "A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25"
-        "A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25"
-        'A2.25 2.25 0 013 12V5.25"/>'
-    ),
-    "headphones": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424'
-        "M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53"
-        "l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12"
-        'c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z"/>'
-    ),
-    "smartwatch": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>'
-    ),
-    "mouse": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M15.042 21.672L13.684 16.6m0 0l-2.51 2.225.569-9.47 5.227 7.917'
-        '-3.286-.672zm-7.518-.267A8.25 8.25 0 1120.25 10.5'
-        'M8.288 14.212A5.25 5.25 0 1117.25 10.5"/>'
-    ),
-    "speaker": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424'
-        "M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53"
-        "l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12"
-        'c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z"/>'
-    ),
-    "monitor": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621'
-        "A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25"
-        "A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25"
-        "A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25"
-        'A2.25 2.25 0 013 12V5.25"/>'
-    ),
-    "webcam": (
-        '<path stroke-linecap="round"'
-        ' d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38'
-        "a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9"
-        "a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9"
-        'A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z"/>'
-    ),
-
-    # ── Home & Kitchen ───────────────────────────────────────────────────────
-    "lamp": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189'
-        "a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0"
-        "m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192"
-        "c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0"
-        'c.85.493 1.509 1.333 1.509 2.316V18"/>'
-    ),
-    "coffee_maker": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048'
-        "A8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867"
-        ' 8.21 8.21 0 003 2.48z"/>'
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M12 18a3.75 3.75 0 00.495-7.467 5.99 5.99 0 00-1.925 3.546'
-        ' 5.974 5.974 0 01-2.133-1A3.75 3.75 0 0012 18z"/>'
-    ),
-    "vacuum": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992'
-        "m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7"
-        'M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/>'
-    ),
-    "toaster": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048'
-        'A8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z"/>'
-    ),
-    "air_fryer": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25'
-        "m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591"
-        'M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"/>'
-    ),
-    "blender": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096'
-        "v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591"
-        "v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568"
-        "a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774"
-        'c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z"/>'
-    ),
-    "cookware": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622'
-        "a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4"
-        "M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5"
-        'c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/>'
-    ),
-
-    # ── Beauty ───────────────────────────────────────────────────────────────
-    "lipstick": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245'
-        "a4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0"
-        "a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395"
-        "m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814"
-        "a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763"
-        'm3.42 3.42a6.776 6.776 0 00-3.42-3.42"/>'
-    ),
-    "conditioner": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5'
-        "M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0"
-        "m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3"
-        "M14.25 3.104c.251.023.501.05.75.082"
-        "M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5"
-        "m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611"
-        'A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5"/>'
-    ),
-    "serum": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M15 11.25l1.5 1.5.75-.75V8.758l2.276-.61a3 3 0 10-3.675-3.675'
-        "l-.61 2.277H12l-.75.75 1.5 1.5M15 11.25l-8.47 8.47"
-        "c-.34.34-.8.53-1.28.53s-.94.19-1.28.53l-.97.97-.75-.75.97-.97"
-        'c.34-.34.53-.8.53-1.28s.19-.94.53-1.28L12.75 9M15 11.25L12.75 9"/>'
-    ),
-    "shampoo": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747'
-        "M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18"
-        "c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582"
-        "M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0"
-        "A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918"
-        "m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253"
-        "m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247"
-        'M3 12c0-1.605.42-3.113 1.157-4.418"/>'
-    ),
-    "sunscreen": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25'
-        "m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591"
-        "M5.25 12H3m4.227-4.773L5.636 5.636"
-        'M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"/>'
-    ),
-    "moisturizer": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09'
-        "L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846"
-        "a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
-        "M18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456"
-        "L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035"
-        "a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"
-        "M16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423"
-        "L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183"
-        'a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/>'
-    ),
-
-    # ── Sports ───────────────────────────────────────────────────────────────
-    "cycling_helmet": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6'
-        "A11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623"
-        'C17.176 20.04 21 15.34 21 9.75c0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/>'
-    ),
-    "tennis_racket": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375'
-        "c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375"
-        "c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497"
-        "m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25"
-        "a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52"
-        "A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228"
-        "M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516"
-        "M7.73 9.728a6.726 6.726 0 002.748 1.35m8.272-6.842V4.5"
-        "c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 012.916.52"
-        "a6.003 6.003 0 01-5.395 4.972m0 0a6.726 6.726 0 01-2.749 1.35"
-        'm m0 0a6.772 6.772 0 01-3.044 0"/>'
-    ),
-    "dumbbell": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0'
-        "M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0"
-        'M3.75 18H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"/>'
-    ),
-    "water_bottle": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5'
-        "M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0"
-        "m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3"
-        "M14.25 3.104c.251.023.501.05.75.082"
-        "M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5"
-        "m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611"
-        'A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5"/>'
-    ),
-    "yoga_mat": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>'
-    ),
-
-    # ── Fashion ──────────────────────────────────────────────────────────────
-    "t-shirt": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245'
-        "a4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0"
-        "a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395"
-        "m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814"
-        "a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763"
-        'm3.42 3.42a6.776 6.776 0 00-3.42-3.42"/>'
-    ),
-    "jeans": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096'
-        "v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591"
-        "v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568"
-        "a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774"
-        'c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z"/>'
-    ),
-    "socks": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M4.5 10.5c-.878 0-1.5.75-1.5 1.628v3.993'
-        "c0 3.087 2.453 5.879 5.5 5.879h6c3.046 0 5.5-2.792 5.5-5.88v-3.992"
-        "c0-.878-.622-1.628-1.5-1.628h-1.5c-.878 0-1.5.75-1.5 1.628v1.5"
-        "c0 .878-.622 1.628-1.5 1.628h-3c-.878 0-1.5-.75-1.5-1.628v-1.5"
-        'c0-.878-.622-1.628-1.5-1.628H4.5zM9 2.25h6M9 5.25h6M9 2.25v3M15 2.25v3"/>'
-    ),
-    "sneakers": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>'
-    ),
-    "dress": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975'
-        "m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21"
-        'a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z"/>'
-    ),
-    "hoodie": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5'
-        "a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75"
-        'a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>'
-    ),
-    "jacket": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3'
-        "m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12"
-        'l-4.179 2.25m0 0l4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0l-5.571 3-5.571-3"/>'
-    ),
-
-    # ── Books ────────────────────────────────────────────────────────────────
-    "paperback": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25'
-        "A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25"
-        "a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25"
-        'A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/>'
-    ),
-    "hardcover": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5'
-        "A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25"
-        "m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125"
-        'v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>'
-    ),
-    "e-book": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M10.5 19.5H6a2.25 2.25 0 01-2.25-2.25V6.75A2.25 2.25 0 016 4.5h7.5'
-        "a2.25 2.25 0 012.25 2.25v1.5m.375 12H18a2.25 2.25 0 002.25-2.25"
-        "V8.625c0-.621-.504-1.125-1.125-1.125H13.5"
-        'a1.125 1.125 0 00-1.125 1.125V18a2.25 2.25 0 01-2.25 2.25"/>'
-    ),
-
-    # ── Toys ─────────────────────────────────────────────────────────────────
-    "board_game": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25'
-        "a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6z"
-        "M3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18"
-        "a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25z"
-        "M13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25"
-        "A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6z"
-        "M13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18"
-        'A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/>'
-    ),
-    "puzzle": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003'
-        "c0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003"
-        ".215.283.401.604.401.959v0a.64.64 0 01-.657.643 48.39 48.39 0 01-4.163-.3"
-        "c.186 1.613.293 3.25.315 4.907a.656.656 0 01-.658.663v0"
-        "c-.355 0-.676-.186-.959-.401a1.647 1.647 0 00-1.003-.349"
-        "c-1.036 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25"
-        "c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0"
-        "c.31 0 .555.26.532.57a48.039 48.039 0 01-.642 5.056"
-        "c1.518.19 3.058.309 4.616.354a.64.64 0 00.657-.643v0"
-        "c0-.355-.186-.676-.401-.959a1.647 1.647 0 01-.349-1.003"
-        "c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875"
-        "c0 .369-.128.713-.349 1.003-.215.283-.4.604-.4.959v0"
-        "c0 .333.277.599.61.58a48.1 48.1 0 005.427-.63 48.05 48.05 0 00.582-4.717"
-        ".532.532 0 00-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349"
-        "-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25"
-        "c.37 0 .713.128 1.003.349.283.215.604.401.959.401v0"
-        "a.656.656 0 00.658-.663 48.422 48.422 0 00-.37-5.36"
-        "c-1.886.342-3.81.574-5.766.689a.578.578 0 01-.61-.58v0z"
-        '"/>'
-    ),
-    "building_blocks": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25'
-        'M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/>'
-    ),
-    "action_figure": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/>'
-    ),
-    "doll": (
-        '<path stroke-linecap="round" stroke-linejoin="round"'
-        ' d="M15.182 15.182a4.5 4.5 0 01-6.364 0M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
-        "M9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75"
-        "zm-.375 0h.008v.015h-.008V9.75zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75"
-        '.168-.75.375-.75.375.336.375.75zm-.375 0h.008v.015h-.008V9.75z"/>'
-    ),
-}
-
-_DEFAULT_PATH_UNUSED = ""
-# ── [DEAD CODE 끝] ─────────────────────────────────────────────────────────────
-
-
-# ── 상품 타입 → 이모지 매핑 ────────────────────────────────────────────────────
-_PRODUCT_EMOJI: dict[str, str] = {
-    # Electronics
-    "ssd": "💾", "keyboard": "⌨️", "headphones": "🎧", "smartwatch": "⌚",
-    "mouse": "🖱️", "speaker": "🔊", "monitor": "🖥️", "webcam": "📷",
-    # Home & Kitchen
-    "lamp": "💡", "coffee_maker": "☕", "vacuum": "🌀", "toaster": "🍞",
-    "air_fryer": "💨", "blender": "🥤", "cookware": "🍳",
-    # Beauty
-    "lipstick": "💄", "conditioner": "🧴", "serum": "💧", "shampoo": "🧴",
-    "sunscreen": "☀️", "moisturizer": "✨",
-    # Sports
-    "cycling_helmet": "⛑️", "tennis_racket": "🎾", "dumbbell": "🏋️",
-    "water_bottle": "🥤", "yoga_mat": "🧘",
-    # Fashion
-    "t-shirt": "👕", "jeans": "👖", "socks": "🧦", "sneakers": "👟",
-    "dress": "👗", "hoodie": "🧥", "jacket": "🧥",
-    # Books
-    "paperback": "📖", "hardcover": "📕", "e-book": "📱",
-    # Toys
-    "board_game": "♟️", "puzzle": "🧩", "building_blocks": "🧱",
-    "action_figure": "⚡", "doll": "🧸",
-}
-
-
-def extract_color(name: str) -> str:
-    """상품명 뒤에서 두 번째 단어를 CSS 색상명으로 추출."""
-    parts = name.split()
-    return parts[-2] if len(parts) >= 2 else "gray"
+_FALLBACK_EMOJI = "🏷️"
 
 
 def extract_product_type(name: str) -> str:
@@ -398,53 +40,135 @@ def _badge_widget(badge: str | None) -> None:
         st.success(badge, icon=None)
 
 
-def _circle(color: str, emoji: str, size: int = 60) -> None:
-    """색상 원형 배경 + 이모지. 단일 라인 <div> → 코드블록 파싱 문제 없음."""
+def _icon_img_html(color: str, product_type: str, size: int) -> str:
+    """상품 타입 아이콘 <img> 태그(또는 폴백 이모지 <div>) HTML 문자열만 반환(마크다운 출력 X).
+
+    filter: hue-rotate()로 아이콘의 파란 베이스 색조를 상품 색상 쪽으로 회전시킨다 — 명도·
+    채도는 건드리지 않아 outline/채움 디테일이 그대로 유지된다(product_icons.icon_color_filter 참고).
+    """
+    slug = icon_slug_for(product_type)
+    if slug:
+        filter_css = icon_color_filter(color)
+        style = f"width:{size}px;height:{size}px;object-fit:contain;display:block;"
+        if filter_css:
+            style += f"filter:{filter_css};"
+        return f'<img src="{icon_url(slug)}" alt="{product_type}" style="{style}" />'
+    return (
+        f'<div style="width:{size}px;height:{size}px;display:flex;align-items:center;'
+        f'justify-content:center;font-size:{size // 2 - 2}px;">{_FALLBACK_EMOJI}</div>'
+    )
+
+
+def product_icon_html(name: str, size: int = 40) -> str:
+    """상품명만으로 카드와 동일한 색상 반영 아이콘 <img> HTML을 반환(요청 반영: 순위
+    요약 리스트에서도 카드와 같은 아이콘을 쓰고 싶어 카드 내부 헬퍼를 공개 함수로 노출).
+    """
+    return _icon_img_html(extract_color(name), extract_product_type(name), size)
+
+
+def _circle(color: str, product_type: str, size: int = 96) -> None:
+    """단일 아이콘만 중앙에 표시(원형 배지 없음) — 상세 페이지 가로형 카드(render_current_product_card) 전용."""
     st.markdown(
-        f'<div style="width:{size}px;height:{size}px;border-radius:50%;background-color:{color};'
-        f'display:flex;align-items:center;justify-content:center;'
-        f'font-size:{size // 2 - 2}px;margin:0 auto 6px auto;">{emoji}</div>',
+        f'<div style="margin:0 auto;width:{size}px;">{_icon_img_html(color, product_type, size)}</div>',
         unsafe_allow_html=True,
     )
+
+
+def _photo_panel(color: str, product_type: str, category: str, size: int = 160) -> None:
+    """사진 패널 — 아이콘을 중앙에 크게 둔다.
+
+    좌상단 카테고리 아이콘 배지는 16px로 축소하면 실루엣이 뭉개져 알아볼 수 없다는
+    이유로 제거했다(요청 반영) — 카테고리 정보는 바로 아래 브랜드 라인 텍스트로 이미
+    표시되므로 정보 손실은 없다.
+    """
+    st.markdown(
+        f'<div class="product-photo-panel">{_icon_img_html(color, product_type, size)}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+# ── Twiddler 순위 변동 배지 (카드 우상단) ────────────────────────────────────────
+# "new": 비교 대상(rank_before_map)은 있었지만 그 안에 없던 상품 — 직전 대비 새로 진입.
+# 특히 새로고침 시뮬레이션에서 직전 라운드 top-10 밖에 있던 상품이 새로 올라오는 경우가
+# 정상 시나리오라 자주 나타난다(요청으로 발견 — 이전엔 빈 배지로 표시돼 혼란스러웠음).
+_DIRECTION_ICON: dict[str, str] = {"up": "▲", "down": "▼", "same": "–", "new": "🆕"}
 
 
 def render_product_card(
     item: pd.Series,
     rank: int,
     badge: str = None,
-    rank_note: str = None,
+    score: float = None,
+    rank_delta: dict | None = None,
+    plain_rank_badge: int | None = None,
+    rank_before: int | None = None,
+    footer: Callable[[], None] | None = None,
 ) -> None:
-    """상품 카드 렌더링.
+    """상품 카드 렌더링 — 커머스 앱(오늘의집 등) 카드 참고 레이아웃(요청 반영).
 
-    rank_note: caption에 표시할 순위 변화 텍스트 (예: "3→1 ▲+2").
-               지정하면 기본 rank 표시 대신 사용.
+    사진 패널(카테고리 아이콘 배지) → 브랜드 라인(카테고리·타입) → 제목 → 매칭율/가격 →
+    순위 → 순위변동 배지 순으로, 참고 이미지의 "할인율·별점·리뷰·배송·쿠폰" 자리를 전부
+    우리가 실제로 가진 데이터(추천 점수→매칭율, 순위, 순위변동)로만 채운다 — 없는 데이터는
+    만들어내지 않는다.
+
+    score: 추천 점수(0~1) — "매칭 N%"로 변환해 가격 옆에 표시.
+    rank_delta: get_rank_delta()가 반환한 {"direction","label"} — 순위변동 배지로 표시
+                (프로덕션 및 데모 "적용 후" 상태용).
+    plain_rank_badge: 값이 있으면 순위변동 계산 없이 단순 "N위"만 표시(데모 "적용 전" 상태용).
+    rank_before: Twiddler 적용 전 순위. 있으면 순위 줄에 "전 순위 N위"를 함께 표시.
     """
     color = extract_color(item["name"])
     product_type = extract_product_type(item["name"])
-    emoji = _PRODUCT_EMOJI.get(product_type.lower().replace(" ", "_"), "🏷️")
 
     with st.container(border=True):
-        _circle(color, emoji)
-        st.write(f"**{item['name']}**")
-        st.caption(item['category'])
-        st.write(f"**$ {float(item['price_usd']):.2f}**")
-        if rank_note:
-            st.caption(f"★ {rank_note}")
-        else:
-            st.caption(f"★ rank: {rank}")
-        _badge_widget(badge)  # 항상 호출 — None이면 동일 높이 플레이스홀더
+        _photo_panel(color, product_type, item["category"])
+
+        st.markdown(
+            f'<div class="product-brand-line">{item["category"]} · {product_type}</div>'
+            f'<div class="product-title-line">{item["name"]}</div>',
+            unsafe_allow_html=True,
+        )
+
+        match_html = (
+            f'<span class="product-match-pill">매칭 {score * 100:.0f}%</span>'
+            if score is not None
+            else ""
+        )
+        st.markdown(
+            f'<div class="product-match-price-row">{match_html}'
+            f'<span class="product-price-line">$ {float(item["price_usd"]):.2f}</span></div>',
+            unsafe_allow_html=True,
+        )
+
+        current_rank = plain_rank_badge if plain_rank_badge is not None else rank
+        rank_text = f"🏆 {current_rank}위"
+        if rank_before is not None:
+            rank_text += f" · 전 순위 {rank_before}위"
+        st.markdown(f'<div class="product-rating-row">{rank_text}</div>', unsafe_allow_html=True)
+
+        if rank_delta is not None:
+            st.markdown(
+                f'<span class="badge badge-{rank_delta["direction"]}">'
+                f'{_DIRECTION_ICON.get(rank_delta["direction"], "")} {rank_delta["label"]}</span>',
+                unsafe_allow_html=True,
+            )
+        _badge_widget(badge)  # 공통 추천 배지 — None이면 동일 높이 플레이스홀더
+        if footer:
+            # "연관 상품 보기" 버튼을 카드 바깥(별도 st.button)이 아니라 카드 테두리
+            # 안쪽에 넣어달라는 요청 반영 — 호출부(main.py)가 버튼 렌더링+클릭 처리를
+            # 콜백으로 넘기면 여기서 container(border=True) 블록이 닫히기 전에 호출한다.
+            footer()
 
 
 def render_current_product_card(item: pd.Series) -> None:
     """상세 페이지용 현재 상품 가로형 강조 카드."""
     color = extract_color(item["name"])
     product_type = extract_product_type(item["name"])
-    emoji = _PRODUCT_EMOJI.get(product_type.lower().replace(" ", "_"), "🏷️")
 
     with st.container(border=True):
         col_icon, col_text = st.columns([1, 4])
         with col_icon:
-            _circle(color, emoji, size=56)
+            _circle(color, product_type, size=88)
         with col_text:
             st.write(f"**{item['name']}**")
             st.caption(f"{item['category']}  ·  $ {float(item['price_usd']):.2f}")
