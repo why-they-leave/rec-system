@@ -3,7 +3,6 @@ import sys
 from pathlib import Path
 
 import streamlit as st
-import streamlit.components.v1 as components
 
 _APP_DIR = Path(__file__).parent
 _STATIC_DIR = _APP_DIR / "static"
@@ -311,7 +310,7 @@ def _setup_sidebar() -> tuple[list[str], set[str] | None, pd.DataFrame | None]:
         # 있는데, 앵커 링크는 그런 상태가 없어 톤이 안 맞아 보였다(요청 반영: "다른
         # 사이드바랑 똑같이 맞춰줘야지") — 스크롤 위치를 보고 어느 섹션이 보이는지
         # 계산해 해당 링크에 .active를 붙인다.
-        # 처음엔 IntersectionObserver를 썼는데, 이 스크립트는 components.html의
+        # 처음엔 IntersectionObserver를 썼는데, 이 스크립트는 st.iframe의
         # 0px 높이 iframe 안에서 실행돼 new IntersectionObserver(...)의 암묵적
         # root(뷰포트)가 "부모 페이지"가 아니라 "이 0px iframe 자신"이 되어버려
         # 교차 판정이 전혀 안 됐다(요청으로 재현·확인 — 스크롤해도 활성 링크가 항상
@@ -321,7 +320,7 @@ def _setup_sidebar() -> tuple[list[str], set[str] | None, pd.DataFrame | None]:
         # 고른다. 실제 스크롤은 window가 아니라 Streamlit 본문의 내부 컨테이너가
         # 담당해 window.scrollY는 안 바뀌므로(요청으로 확인), scroll 이벤트를
         # document에 capture:true로 걸어 내부 컨테이너의 스크롤도 잡아낸다.
-        components.html(
+        st.iframe(
             """
             <script>
             (function () {
