@@ -376,7 +376,7 @@ def _setup_sidebar() -> tuple[list[str], set[str] | None, pd.DataFrame | None]:
             })();
             </script>
             """,
-            height=0,
+            height=1,
         )
 
     return selected_categories, (selected_types or None), demo_users
