@@ -54,8 +54,10 @@ T_ROUNDS = 5  # 반복 새로고침(메인)/재방문(상세) 시뮬레이션 �
 
 POOL_MULTIPLIER = rerank_mod.POOL_MULTIPLIER
 
-ALL_SEGMENTS_LABEL = "ALL"        # population 전체 평균 버킷(기존 aggregate 표와 동일)
-_NO_PERSONA_LABEL = "페르소나 없음"  # get_persona가 None을 반환하는 유저용 버킷(현재 데이터엔 거의 없음)
+ALL_SEGMENTS_LABEL = "ALL"  # population 전체 평균 버킷(기존 aggregate 표와 동일)
+_NO_PERSONA_LABEL = (
+    "페르소나 없음"  # get_persona가 None을 반환하는 유저용 버킷(현재 데이터엔 거의 없음)
+)
 
 
 def _segment_label(user_or_cust_id: int) -> str:
@@ -91,6 +93,7 @@ def _diversity_metrics(rounds: list[list[int]], k: int, category_map: dict) -> d
 
 # ── 메인(ALS) ────────────────────────────────────────────────────────────────
 
+
 def _load_main_context(
     output_dir: Path = ALS_OUTPUT_DIR,
     rec_filename: str = "PRED_MAIN_RECOMMEND.csv",
@@ -120,7 +123,9 @@ def _load_main_context(
     }
 
 
-def _apply_current_twiddler_main(candidates: list[dict], uid: int, k: int, category_map: dict) -> list[int]:
+def _apply_current_twiddler_main(
+    candidates: list[dict], uid: int, k: int, category_map: dict
+) -> list[int]:
     """실서빙과 동일한 순서로 호출: get_persona → get_user_affinity/alpha → rerank."""
     persona_label = persona_service.get_persona(uid)
     if persona_label is None:
@@ -128,8 +133,13 @@ def _apply_current_twiddler_main(candidates: list[dict], uid: int, k: int, categ
     affinity = persona_service.get_user_affinity(uid)
     alpha = persona_service.get_user_alpha(uid)
     reranked = rerank_mod.rerank(
-        candidates, id_key="item_id", category_map=category_map,
-        affinity=affinity, alpha=alpha, exposure_counts=None, top_k=k,
+        candidates,
+        id_key="item_id",
+        category_map=category_map,
+        affinity=affinity,
+        alpha=alpha,
+        exposure_counts=None,
+        top_k=k,
     )
     return [it["item_id"] for it in reranked]
 
@@ -152,7 +162,9 @@ def _main_accuracy_rows(ctx: dict, context_label: str = MAIN_CONTEXT_LABEL) -> l
                 if condition == "baseline":
                     recommended = [it["item_id"] for it in candidates[:k]]
                 else:
-                    recommended = _apply_current_twiddler_main(candidates, uid, k, ctx["category_map"])
+                    recommended = _apply_current_twiddler_main(
+                        candidates, uid, k, ctx["category_map"]
+                    )
                 true_items = ctx["ground_truth"][uid]
                 hr = hit_rate_at_k(recommended, true_items)
                 recall = recall_at_k(recommended, true_items)
@@ -163,12 +175,21 @@ def _main_accuracy_rows(ctx: dict, context_label: str = MAIN_CONTEXT_LABEL) -> l
                     b["Recall"].append(recall)
                     b["NDCG"].append(ndcg)
             for segment, b in buckets.items():
-                rows.append({
-                    "context": context_label, "condition": condition, "k": k, "segment": segment,
-                    "HR": round(np.mean(b["HR"]), 4), "Recall": round(np.mean(b["Recall"]), 4),
-                    "NDCG": round(np.mean(b["NDCG"]), 4), "eval_users": len(b["HR"]),
-                })
-    logger.info("[메인:%s] 정확도 계산 완료 (%s행, 세그먼트 breakdown 포함)", context_label, len(rows))
+                rows.append(
+                    {
+                        "context": context_label,
+                        "condition": condition,
+                        "k": k,
+                        "segment": segment,
+                        "HR": round(np.mean(b["HR"]), 4),
+                        "Recall": round(np.mean(b["Recall"]), 4),
+                        "NDCG": round(np.mean(b["NDCG"]), 4),
+                        "eval_users": len(b["HR"]),
+                    }
+                )
+    logger.info(
+        "[메인:%s] 정확도 계산 완료 (%s행, 세그먼트 breakdown 포함)", context_label, len(rows)
+    )
     return rows
 
 
@@ -190,8 +211,14 @@ def _simulate_main_sessions(
         candidates = [dict(it) for it in candidates_base]
         exposure_arg = exposure_counts if exposure_counts else None
         reranked = rerank_mod.rerank(
-            candidates, id_key="item_id", category_map=category_map,
-            affinity=affinity, alpha=alpha, exposure_counts=exposure_arg, decay=decay, top_k=k,
+            candidates,
+            id_key="item_id",
+            category_map=category_map,
+            affinity=affinity,
+            alpha=alpha,
+            exposure_counts=exposure_arg,
+            decay=decay,
+            top_k=k,
         )
         slate = [it["item_id"] for it in reranked]
         sessions.append(slate)
@@ -210,29 +237,44 @@ def _main_diversity_rows(ctx: dict, context_label: str = MAIN_CONTEXT_LABEL) -> 
                 if uid not in ctx["recs_by_user"]:
                     continue
                 candidates_base = ctx["recs_by_user"][uid][:pool_n]
-                sessions = _simulate_main_sessions(candidates_base, uid, k, condition, ctx["category_map"])
+                sessions = _simulate_main_sessions(
+                    candidates_base, uid, k, condition, ctx["category_map"]
+                )
                 m = _diversity_metrics(sessions, k, ctx["category_map"])
                 for segment in (ALL_SEGMENTS_LABEL, _segment_label(uid)):
-                    b = buckets.setdefault(segment, {
-                        "repetition_rate": [], "unique_item_ratio": [],
-                        "categories_first": [], "categories_cumulative": [],
-                    })
+                    b = buckets.setdefault(
+                        segment,
+                        {
+                            "repetition_rate": [],
+                            "unique_item_ratio": [],
+                            "categories_first": [],
+                            "categories_cumulative": [],
+                        },
+                    )
                     for key in b:
                         b[key].append(m[key])
             for segment, b in buckets.items():
-                rows.append({
-                    "context": context_label, "condition": condition, "k": k, "segment": segment,
-                    "repetition_rate": round(np.mean(b["repetition_rate"]), 4),
-                    "unique_item_ratio": round(np.mean(b["unique_item_ratio"]), 4),
-                    "categories_first": round(np.mean(b["categories_first"]), 2),
-                    "categories_cumulative": round(np.mean(b["categories_cumulative"]), 2),
-                    "n_users": len(b["repetition_rate"]),
-                })
-    logger.info("[메인:%s] 다양성 계산 완료 (%s행, 세그먼트 breakdown 포함)", context_label, len(rows))
+                rows.append(
+                    {
+                        "context": context_label,
+                        "condition": condition,
+                        "k": k,
+                        "segment": segment,
+                        "repetition_rate": round(np.mean(b["repetition_rate"]), 4),
+                        "unique_item_ratio": round(np.mean(b["unique_item_ratio"]), 4),
+                        "categories_first": round(np.mean(b["categories_first"]), 2),
+                        "categories_cumulative": round(np.mean(b["categories_cumulative"]), 2),
+                        "n_users": len(b["repetition_rate"]),
+                    }
+                )
+    logger.info(
+        "[메인:%s] 다양성 계산 완료 (%s행, 세그먼트 breakdown 포함)", context_label, len(rows)
+    )
     return rows
 
 
 # ── 상세(보완재) ─────────────────────────────────────────────────────────────
+
 
 def _load_detail_context() -> dict:
     """run_modeling을 재실행해 보완재 후보 풀과 세션 기반 평가 케이스를 구성한다.
@@ -274,7 +316,9 @@ def _load_detail_context() -> dict:
             "persona": label,
             "affinity": persona_service.get_user_affinity(cust) if label is not None else {},
             "alpha": persona_service.get_user_alpha(cust) if label is not None else 0.0,
-            "decay": persona_service.get_user_decay(cust) if label is not None else rerank_mod.EXPOSURE_DECAY,
+            "decay": persona_service.get_user_decay(cust)
+            if label is not None
+            else rerank_mod.EXPOSURE_DECAY,
         }
     logger.info("[상세] 평가 케이스 수: %s건, 고유 고객 수: %s명", len(cases), len(unique_custs))
     return {
@@ -298,8 +342,13 @@ def _detail_accuracy_rows(ctx: dict) -> list[dict]:
                     recommended = [it["rec_item_id"] for it in candidates[:k]]
                 else:
                     reranked = rerank_mod.rerank(
-                        candidates, id_key="rec_item_id", category_map=ctx["category_map"],
-                        affinity=pf["affinity"], alpha=pf["alpha"], exposure_counts=None, top_k=k,
+                        candidates,
+                        id_key="rec_item_id",
+                        category_map=ctx["category_map"],
+                        affinity=pf["affinity"],
+                        alpha=pf["alpha"],
+                        exposure_counts=None,
+                        top_k=k,
                     )
                     recommended = [it["rec_item_id"] for it in reranked]
                 hr = hit_rate_at_k(recommended, ground_truth)
@@ -312,11 +361,18 @@ def _detail_accuracy_rows(ctx: dict) -> list[dict]:
                     b["Recall"].append(recall)
                     b["NDCG"].append(ndcg)
             for segment, b in buckets.items():
-                rows.append({
-                    "context": "detail", "condition": condition, "k": k, "segment": segment,
-                    "HR": round(np.mean(b["HR"]), 4), "Recall": round(np.mean(b["Recall"]), 4),
-                    "NDCG": round(np.mean(b["NDCG"]), 4), "eval_users": len(b["HR"]),
-                })
+                rows.append(
+                    {
+                        "context": "detail",
+                        "condition": condition,
+                        "k": k,
+                        "segment": segment,
+                        "HR": round(np.mean(b["HR"]), 4),
+                        "Recall": round(np.mean(b["Recall"]), 4),
+                        "NDCG": round(np.mean(b["NDCG"]), 4),
+                        "eval_users": len(b["HR"]),
+                    }
+                )
     logger.info("[상세] 정확도 계산 완료 (%s행, 세그먼트 breakdown 포함)", len(rows))
     return rows
 
@@ -333,9 +389,14 @@ def _simulate_detail_views(
         candidates = [dict(it) for it in candidates_base]
         exposure_arg = exposure_counts if exposure_counts else None
         reranked = rerank_mod.rerank(
-            candidates, id_key="rec_item_id", category_map=category_map,
-            affinity=pf["affinity"], alpha=pf["alpha"],
-            exposure_counts=exposure_arg, decay=pf["decay"], top_k=k,
+            candidates,
+            id_key="rec_item_id",
+            category_map=category_map,
+            affinity=pf["affinity"],
+            alpha=pf["alpha"],
+            exposure_counts=exposure_arg,
+            decay=pf["decay"],
+            top_k=k,
         )
         slate = [it["rec_item_id"] for it in reranked]
         views.append(slate)
@@ -353,25 +414,37 @@ def _detail_diversity_rows(ctx: dict) -> list[dict]:
             for target_prod, cust in unique_item_cust:
                 candidates_base = ctx["recs_dict"][target_prod]
                 pf = ctx["persona_cache"][cust]
-                views = _simulate_detail_views(candidates_base, pf, k, condition, ctx["category_map"])
+                views = _simulate_detail_views(
+                    candidates_base, pf, k, condition, ctx["category_map"]
+                )
                 m = _diversity_metrics(views, k, ctx["category_map"])
                 segment = pf["persona"] or _NO_PERSONA_LABEL
                 for key in (ALL_SEGMENTS_LABEL, segment):
-                    b = buckets.setdefault(key, {
-                        "repetition_rate": [], "unique_item_ratio": [],
-                        "categories_first": [], "categories_cumulative": [],
-                    })
+                    b = buckets.setdefault(
+                        key,
+                        {
+                            "repetition_rate": [],
+                            "unique_item_ratio": [],
+                            "categories_first": [],
+                            "categories_cumulative": [],
+                        },
+                    )
                     for mk in b:
                         b[mk].append(m[mk])
             for segment, b in buckets.items():
-                rows.append({
-                    "context": "detail", "condition": condition, "k": k, "segment": segment,
-                    "repetition_rate": round(np.mean(b["repetition_rate"]), 4),
-                    "unique_item_ratio": round(np.mean(b["unique_item_ratio"]), 4),
-                    "categories_first": round(np.mean(b["categories_first"]), 2),
-                    "categories_cumulative": round(np.mean(b["categories_cumulative"]), 2),
-                    "n_users": len(b["repetition_rate"]),
-                })
+                rows.append(
+                    {
+                        "context": "detail",
+                        "condition": condition,
+                        "k": k,
+                        "segment": segment,
+                        "repetition_rate": round(np.mean(b["repetition_rate"]), 4),
+                        "unique_item_ratio": round(np.mean(b["unique_item_ratio"]), 4),
+                        "categories_first": round(np.mean(b["categories_first"]), 2),
+                        "categories_cumulative": round(np.mean(b["categories_cumulative"]), 2),
+                        "n_users": len(b["repetition_rate"]),
+                    }
+                )
     logger.info("[상세] 다양성 계산 완료 (%s행, 세그먼트 breakdown 포함)", len(rows))
     return rows
 

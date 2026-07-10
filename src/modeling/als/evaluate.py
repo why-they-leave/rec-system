@@ -26,19 +26,19 @@ PARAMS_PATH = Path(__file__).resolve().parents[3] / "configs" / "als" / "params.
 
 PATHS = {
     "full": {
-        "rec_file" : "PRED_MAIN_RECOMMEND.csv",
+        "rec_file": "PRED_MAIN_RECOMMEND.csv",
         "test_file": "als_test.csv",
         "eval_file": "eval_results.csv",
     },
     "us": {
-        "rec_file" : "PRED_MAIN_RECOMMEND_us.csv",
+        "rec_file": "PRED_MAIN_RECOMMEND_us.csv",
         "test_file": "als_test_us.csv",
         "eval_file": "eval_results_us.csv",
     },
 }
 
 OUTPUT_DIR = "data/outputs/ALS"
-LOG_DIR    = "logs/ALS"
+LOG_DIR = "logs/ALS"
 
 
 def setup_logging(log_dir: str, dataset: str) -> logging.Logger:
@@ -65,8 +65,12 @@ def setup_logging(log_dir: str, dataset: str) -> logging.Logger:
 def load_artifacts(rec_path: str, test_path: str, logger: logging.Logger):
     recs_df = pd.read_csv(rec_path)
     test_df = pd.read_csv(test_path)
-    logger.info(f"[로드] 추천 결과: {len(recs_df):,}개 레코드 (유저 수: {recs_df['user_id'].nunique():,}명)")
-    logger.info(f"[로드] 테스트 데이터: {len(test_df):,}개 user-item 쌍 (유저 수: {test_df['user_id'].nunique():,}명)")
+    logger.info(
+        f"[로드] 추천 결과: {len(recs_df):,}개 레코드 (유저 수: {recs_df['user_id'].nunique():,}명)"
+    )
+    logger.info(
+        f"[로드] 테스트 데이터: {len(test_df):,}개 user-item 쌍 (유저 수: {test_df['user_id'].nunique():,}명)"
+    )
     return recs_df, test_df
 
 
@@ -112,7 +116,9 @@ def evaluate_at_k(
     """저장된 추천 결과에서 rank <= k 필터링 후 지표 계산"""
     max_rank = recs_df["rank"].max()
     if k > max_rank:
-        logger.warning(f"K={k}가 저장된 최대 추천 수({max_rank})를 초과합니다. 결과가 부정확할 수 있습니다.")
+        logger.warning(
+            f"K={k}가 저장된 최대 추천 수({max_rank})를 초과합니다. 결과가 부정확할 수 있습니다."
+        )
 
     user_recs = (
         recs_df[recs_df["rank"] <= k]
@@ -140,12 +146,12 @@ def evaluate_at_k(
     )
 
     return {
-        "k"         : k,
-        "HR"        : round(np.mean(hr_list), 4),
-        "Recall"    : round(np.mean(recall_list), 4),
-        "NDCG"      : round(np.mean(ndcg_list), 4),
+        "k": k,
+        "HR": round(np.mean(hr_list), 4),
+        "Recall": round(np.mean(recall_list), 4),
+        "NDCG": round(np.mean(ndcg_list), 4),
         "eval_users": len(hr_list),
-        "skipped"   : skipped,
+        "skipped": skipped,
     }
 
 
@@ -166,26 +172,28 @@ def save_eval_results(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ALS 추천 결과 평가")
     parser.add_argument(
-        "--dataset", choices=["full", "us"], default="full",
-        help="평가 데이터셋 선택 (full / us)"
+        "--dataset", choices=["full", "us"], default="full", help="평가 데이터셋 선택 (full / us)"
     )
     parser.add_argument(
-        "--k", nargs="+", type=int, default=None,
-        help="평가할 K 값 목록 (예: --k 5 10 20). 미입력 시 params.yaml의 eval.k_list 사용"
+        "--k",
+        nargs="+",
+        type=int,
+        default=None,
+        help="평가할 K 값 목록 (예: --k 5 10 20). 미입력 시 params.yaml의 eval.k_list 사용",
     )
     args = parser.parse_args()
 
     with open(PARAMS_PATH, "r", encoding="utf-8") as f:
         params = yaml.safe_load(f)
 
-    paths  = PATHS[args.dataset]
+    paths = PATHS[args.dataset]
     logger = setup_logging(LOG_DIR, args.dataset)
 
     k_list = args.k if args.k is not None else params["eval"]["k_list"]
     logger.info(f"===== ALS 평가 시작 | dataset={args.dataset}, K={k_list} =====")
 
     # 1. 로드
-    rec_path  = os.path.join(OUTPUT_DIR, paths["rec_file"])
+    rec_path = os.path.join(OUTPUT_DIR, paths["rec_file"])
     test_path = os.path.join(OUTPUT_DIR, paths["test_file"])
     recs_df, test_df = load_artifacts(rec_path, test_path, logger)
 

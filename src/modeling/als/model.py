@@ -15,7 +15,6 @@ from datetime import datetime
 from pathlib import Path
 
 import implicit
-import numpy as np
 import pandas as pd
 import scipy.sparse as sparse
 import yaml
@@ -30,22 +29,22 @@ PARAMS_PATH = Path(__file__).resolve().parents[3] / "configs" / "als" / "params.
 
 PATHS = {
     "full": {
-        "mart"      : "data/interim/als_events.csv",  # 원본 데이터마트 생성 코드로 만든 실제 마트(사용자 제공)
-        "rec_file"  : "PRED_MAIN_RECOMMEND.csv",
-        "test_file" : "als_test.csv",
+        "mart": "data/interim/als_events.csv",  # 원본 데이터마트 생성 코드로 만든 실제 마트(사용자 제공)
+        "rec_file": "PRED_MAIN_RECOMMEND.csv",
+        "test_file": "als_test.csv",
         "model_file": "als_model.pkl",
     },
     "us": {
-        "mart"      : "data/interim/als_events_us.csv",
-        "rec_file"  : "PRED_MAIN_RECOMMEND_us.csv",
-        "test_file" : "als_test_us.csv",
+        "mart": "data/interim/als_events_us.csv",
+        "rec_file": "PRED_MAIN_RECOMMEND_us.csv",
+        "test_file": "als_test_us.csv",
         "model_file": "als_model_us.pkl",
     },
 }
 
 OUTPUT_DIR = "data/outputs/ALS"
-MODEL_DIR  = "models/ALS"
-LOG_DIR    = "logs/ALS"
+MODEL_DIR = "models/ALS"
+LOG_DIR = "logs/ALS"
 
 
 def setup_logging(log_dir: str, dataset: str) -> logging.Logger:
@@ -87,7 +86,7 @@ def split_events(df: pd.DataFrame, split_date: str, logger: logging.Logger):
     이후 train/test 각각에서 user-item 점수를 집계
     """
     train = df[df["timestamp"] < split_date].copy()
-    test  = df[df["timestamp"] >= split_date].copy()
+    test = df[df["timestamp"] >= split_date].copy()
     logger.info(f"[Split] Train: {len(train):,}개 / Test: {len(test):,}개 (기준: {split_date})")
     return train, test
 
@@ -95,11 +94,7 @@ def split_events(df: pd.DataFrame, split_date: str, logger: logging.Logger):
 # 3. user-item 단위 점수 집계
 def aggregate_scores(events_df: pd.DataFrame) -> pd.DataFrame:
     """이벤트 레벨 → user-item 단위 점수 합산"""
-    return (
-        events_df.groupby(["user_id", "item_id"])
-        .agg(total_score=("score", "sum"))
-        .reset_index()
-    )
+    return events_df.groupby(["user_id", "item_id"]).agg(total_score=("score", "sum")).reset_index()
 
 
 # 4. 유저 세그먼트 분리
@@ -110,7 +105,7 @@ def segment_users(train_events: pd.DataFrame, threshold: int, logger: logging.Lo
     """
     user_event_counts = train_events.groupby("user_id")["item_id"].count()
     heavy_users = user_event_counts[user_event_counts >= threshold].index.tolist()
-    cold_users  = user_event_counts[user_event_counts <  threshold].index.tolist()
+    cold_users = user_event_counts[user_event_counts < threshold].index.tolist()
     logger.info(f"[세그먼트] Heavy 유저: {len(heavy_users):,}명 / Cold 유저: {len(cold_users):,}명")
     return heavy_users, cold_users
 
@@ -130,8 +125,7 @@ def build_sparse_matrix(train_agg: pd.DataFrame, logger: logging.Logger):
     cols = train_agg["item_id"].map(item_enc)
 
     matrix = sparse.csr_matrix(
-        (train_agg["total_score"].astype(float), (rows, cols)),
-        shape=(len(user_ids), len(item_ids))
+        (train_agg["total_score"].astype(float), (rows, cols)), shape=(len(user_ids), len(item_ids))
     )
     logger.info(f"[희소행렬] shape: {matrix.shape} / nonzero: {matrix.nnz:,}")
     return matrix, user_enc, item_enc, user_dec, item_dec
@@ -212,13 +206,15 @@ def generate_heavy_recommendations(
     records = []
     for i, user_id in enumerate(valid_users):
         for rank, (item_idx, score) in enumerate(zip(all_item_indices[i], all_scores[i]), start=1):
-            records.append({
-                "user_id"  : user_id,
-                "item_id"  : item_dec[item_idx],
-                "score"    : round(float(score), 6),
-                "rank"     : rank,
-                "user_type": "heavy",
-            })
+            records.append(
+                {
+                    "user_id": user_id,
+                    "item_id": item_dec[item_idx],
+                    "score": round(float(score), 6),
+                    "rank": rank,
+                    "user_type": "heavy",
+                }
+            )
 
     df_rec = pd.DataFrame(records)
     logger.info(f"[Heavy 추천] {len(valid_users):,}명 → {len(df_rec):,}개 레코드")
@@ -237,10 +233,7 @@ def generate_cold_recommendations(
     유저별로 이미 소비한 아이템은 제외
     """
     popular_items = (
-        train_agg.groupby("item_id")["total_score"]
-        .sum()
-        .sort_values(ascending=False)
-        .reset_index()
+        train_agg.groupby("item_id")["total_score"].sum().sort_values(ascending=False).reset_index()
     )
     user_seen = train_agg.groupby("user_id")["item_id"].apply(set).to_dict()
 
@@ -249,13 +242,15 @@ def generate_cold_recommendations(
         seen = user_seen.get(user_id, set())
         user_recs = popular_items[~popular_items["item_id"].isin(seen)].head(top_n)
         for rank, row in enumerate(user_recs.itertuples(index=False), start=1):
-            records.append({
-                "user_id"  : user_id,
-                "item_id"  : row.item_id,
-                "score"    : round(float(row.total_score), 6),
-                "rank"     : rank,
-                "user_type": "cold",
-            })
+            records.append(
+                {
+                    "user_id": user_id,
+                    "item_id": row.item_id,
+                    "score": round(float(row.total_score), 6),
+                    "rank": rank,
+                    "user_type": "cold",
+                }
+            )
 
     df_cold = pd.DataFrame(records)
     logger.info(f"[Cold 추천] {len(cold_users):,}명 → {len(df_cold):,}개 레코드")
@@ -297,16 +292,19 @@ def save_outputs(
 
     model_path = os.path.join(model_dir, paths["model_file"])
     with open(model_path, "wb") as f:
-        pickle.dump({
-            "model"        : model,
-            "user_enc"     : user_enc,
-            "item_enc"     : item_enc,
-            "user_dec"     : user_dec,
-            "item_dec"     : item_dec,
-            "matrix"       : matrix,
-            "popular_items": popular_items,
-            "user_type_map": user_type_map,
-        }, f)
+        pickle.dump(
+            {
+                "model": model,
+                "user_enc": user_enc,
+                "item_enc": item_enc,
+                "user_dec": user_dec,
+                "item_dec": item_dec,
+                "matrix": matrix,
+                "popular_items": popular_items,
+                "user_type_map": user_type_map,
+            },
+            f,
+        )
     logger.info(f"[저장] 모델 → {model_path}")
 
 
@@ -314,17 +312,18 @@ def save_outputs(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ALS 추천 모델 학습")
     parser.add_argument(
-        "--dataset", choices=["full", "us"], default="full",
-        help="학습 데이터셋 선택 (full / us)"
+        "--dataset", choices=["full", "us"], default="full", help="학습 데이터셋 선택 (full / us)"
     )
     args = parser.parse_args()
 
     params = load_params(PARAMS_PATH)
-    paths  = PATHS[args.dataset]
+    paths = PATHS[args.dataset]
     logger = setup_logging(LOG_DIR, args.dataset)
 
     logger.info(f"===== ALS 학습 시작 | dataset={args.dataset} =====")
-    logger.info(f"[파라미터] split_date={params['split_date']}, cold_threshold={params['cold_threshold']}, top_n={params['top_n']}")
+    logger.info(
+        f"[파라미터] split_date={params['split_date']}, cold_threshold={params['cold_threshold']}, top_n={params['top_n']}"
+    )
 
     # 1. 이벤트 로드
     events_df = load_events(paths["mart"], logger)
@@ -347,8 +346,11 @@ if __name__ == "__main__":
     # 5-1. (선택) 신뢰도 행렬 재가중치 — params.yaml에 weighting 키가 없으면 no-op(method="none")
     weighting_cfg = params.get("weighting", {"method": "none"})
     matrix = apply_weighting(
-        matrix, weighting_cfg.get("method", "none"), logger,
-        K1=weighting_cfg.get("K1", 100), B=weighting_cfg.get("B", 0.8),
+        matrix,
+        weighting_cfg.get("method", "none"),
+        logger,
+        K1=weighting_cfg.get("K1", 100),
+        B=weighting_cfg.get("B", 0.8),
     )
 
     # 6. ALS 학습
@@ -385,9 +387,20 @@ if __name__ == "__main__":
 
     # 11. 저장
     save_outputs(
-        df_all, model, user_enc, item_enc, user_dec, item_dec,
-        test_pairs, paths, OUTPUT_DIR, MODEL_DIR, logger,
-        matrix=matrix, popular_items=popular_items, user_type_map=user_type_map,
+        df_all,
+        model,
+        user_enc,
+        item_enc,
+        user_dec,
+        item_dec,
+        test_pairs,
+        paths,
+        OUTPUT_DIR,
+        MODEL_DIR,
+        logger,
+        matrix=matrix,
+        popular_items=popular_items,
+        user_type_map=user_type_map,
     )
 
     logger.info("===== ALS 학습 완료 =====")

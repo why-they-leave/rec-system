@@ -32,7 +32,9 @@ def _load_params(path: Path = _PARAMS_PATH) -> dict:
 
 _params = _load_params()
 
-NUM_CATEGORIES = _params["num_categories"]  # data/dashboard/products.csv 기준 카테고리 종류 수 (균등분포 baseline用)
+NUM_CATEGORIES = _params[
+    "num_categories"
+]  # data/dashboard/products.csv 기준 카테고리 종류 수 (균등분포 baseline用)
 
 BASE_ALPHA = _params["base_alpha"]
 MULTIPLIER_FLOOR = _params["multiplier_floor"]
@@ -77,7 +79,7 @@ def apply_exposure_penalty(
     """
     for item in items:
         count = exposure_counts.get(item[id_key], 0.0)
-        item["score"] = item["score"] * (decay ** count)
+        item["score"] = item["score"] * (decay**count)
     return items
 
 
