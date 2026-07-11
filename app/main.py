@@ -1151,6 +1151,10 @@ def _render_rerank_detail(demo_users_df: pd.DataFrame) -> None:
         how="left",
         suffixes=("_detail", ""),
     )
+    # 카탈로그 스냅샷에 없는 rec_item_id(배치 산출물과 버전이 어긋난 경우)는 name이
+    # NaN이 되어 product_card의 extract_color(name.split())에서 크래시하므로 제거한다
+    # (요청으로 발견).
+    cf_recs = cf_recs[cf_recs["name"].notna()]
 
     if cf_recs.empty:
         st.info("연관 상품 데이터가 없습니다.")

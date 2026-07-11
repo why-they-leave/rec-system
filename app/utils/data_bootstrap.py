@@ -40,6 +40,7 @@ data/processed/segment_personas_train_only.json은 graph_service.py가 없어도
 
 from __future__ import annotations
 
+import uuid
 import zipfile
 from pathlib import Path
 
@@ -48,7 +49,6 @@ import gdown
 GDRIVE_FILE_ID_ENV = "REC_SYSTEM_DATA_FILE_ID"
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
-ZIP_PATH = ROOT_DIR / "rec-system-data-required.zip"
 
 REQUIRED_FILES = [
     "data/dashboard/recommend.db",
@@ -77,11 +77,21 @@ def is_data_ready() -> bool:
 
 
 def ensure_data_downloaded(file_id: str) -> None:
-    """필요한 파일이 이미 있으면 아무 것도 하지 않고, 없으면 GDrive에서 받아 리포 루트에 압축 해제한다."""
+    """필요한 파일이 이미 있으면 아무 것도 하지 않고, 없으면 GDrive에서 받아 리포 루트에 압축 해제한다.
+
+    Streamlit Community Cloud는 여러 세션이 같은 프로세스/파일시스템을 공유해, 콜드스타트
+    직후 두 세션이 동시에 진입하면 고정된 zip 경로를 두고 경쟁하는 문제(하나가 지운 파일을
+    다른 하나가 또 지우려 해 FileNotFoundError)가 있었다(요청으로 재현). 세션마다 고유한
+    임시 zip 경로를 써서 애초에 경쟁이 발생하지 않게 한다 — 동시에 두 세션이 진입하면
+    다운로드가 중복될 뿐, 서로의 파일을 건드리지 않는다.
+    """
     if is_data_ready():
         return
 
-    gdown.download(id=file_id, output=str(ZIP_PATH), quiet=False)
-    with zipfile.ZipFile(ZIP_PATH) as zf:
-        zf.extractall(ROOT_DIR)
-    ZIP_PATH.unlink()
+    zip_path = ROOT_DIR / f"rec-system-data-required-{uuid.uuid4().hex}.zip"
+    try:
+        gdown.download(id=file_id, output=str(zip_path), quiet=False)
+        with zipfile.ZipFile(zip_path) as zf:
+            zf.extractall(ROOT_DIR)
+    finally:
+        zip_path.unlink(missing_ok=True)
