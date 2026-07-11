@@ -48,6 +48,7 @@
 
 ### 리팩터링
 
+- 배포 시 발생 오류 수정 ([57ce4d0](https://github.com/JungYeoni/da-template/commit/57ce4d065453df6aa5d84b255b4f6691e111f525))
 - 사이드바 안접힘 오류 해결 ([e6198c9](https://github.com/JungYeoni/da-template/commit/e6198c9ff1c518a86ffeedcbff8732a11a4c3270))
 - 추천 효과탬 오류 수정 ([2011cd5](https://github.com/JungYeoni/da-template/commit/2011cd5dcc06a25855bb4d6aab5b53ec6ca17d63))
 - #10 깃허브 CI error 해결 ([bf8a518](https://github.com/JungYeoni/da-template/commit/bf8a51880e3784f4df7cd80923e45977488edf25))
@@ -78,6 +79,7 @@
 
 ### 문서
 
+- CHANGELOG 자동 업데이트 [skip ci] ([ade5a3c](https://github.com/JungYeoni/da-template/commit/ade5a3c7bf9d6f7ee5f4763b2737f5de9ebee46c))
 - CHANGELOG 자동 업데이트 [skip ci] ([03540b0](https://github.com/JungYeoni/da-template/commit/03540b0016352e0afe9fdcc0779f0e4a859e4832))
 - CHANGELOG 자동 업데이트 [skip ci] ([ddef764](https://github.com/JungYeoni/da-template/commit/ddef764b9a8d7ac01979c04aecdf85d264f4b2a9))
 - CHANGELOG 자동 업데이트 [skip ci] ([c02ffcc](https://github.com/JungYeoni/da-template/commit/c02ffccfb5854dee804f049f4580c42abf8d917b))
